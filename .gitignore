@@ -9,3 +9,6 @@ venv/
 *.db
 *.log
 .DS_Store
+.env
+secret.key
+config.json

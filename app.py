@@ -5,11 +5,17 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from werkzeug.security import check_password_hash
 from functools import wraps
 from datetime import datetime
+from dotenv import load_dotenv
 import database
-import json
+import os
+import re
+
+load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = 'dell_avamar_migration_secret' 
+app.secret_key = os.environ.get('SECRET_KEY')
+if not app.secret_key:
+    raise ValueError("SECRET_KEY environment variable must be set") 
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -40,11 +46,44 @@ def admin_required(f):
 
 settings = SettingsManager()
 
-# Pre-populate settings if empty (Migration logic for existing users or demo)
-# In reality we would let the user add them.
-
-# In-memory "database"
+# In-memory cache for scan results (refreshed on each scan)
 candidates_cache = []
+
+
+def get_client_for_host(host, is_source=True):
+    """Helper to get authenticated AvamarClient for a given host."""
+    candidates = settings.get_sources() if is_source else settings.get_destinations()
+    for conf in candidates:
+        if conf['host'] == host:
+            try:
+                pw = settings._decrypt(conf['password'])
+                cl = AvamarClient(host, conf['user'], pw)
+                if cl._authenticate():
+                    return cl
+            except Exception as e:
+                app.logger.warning(f"Failed to authenticate to {host}: {e}")
+                continue
+    return None
+
+
+def strip_passwords(data_list):
+    """Remove password fields from config dictionaries for API responses."""
+    return [{k: v for k, v in item.items() if k != 'password'} for item in data_list]
+
+
+def calculate_backup_size(backup_list):
+    """Calculate total size in bytes from a list of backup objects."""
+    total_bytes = 0
+    try:
+        for b in backup_list:
+            val = b.get('totalBytes') or b.get('totalbytes') or b.get('size') or b.get('bytes') or 0
+            try:
+                total_bytes += int(val)
+            except (ValueError, TypeError):
+                pass
+    except Exception as e:
+        app.logger.warning(f"Error calculating backup size: {e}")
+    return total_bytes
 # replication_groups stored in SQLite now
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -224,9 +263,7 @@ def handle_sources():
         return jsonify({'status': 'ok'})
     else:
         sources = settings.get_sources()
-        # Remove passwords for frontend
-        safe_sources = [{k:v for k,v in s.items() if k!='password'} for s in sources]
-        return jsonify(safe_sources)
+        return jsonify(strip_passwords(sources))
 
 @app.route('/api/settings/destinations', methods=['GET', 'POST'])
 @login_required
@@ -241,8 +278,7 @@ def handle_destinations():
         return jsonify({'status': 'ok'})
     else:
         dests = settings.get_destinations()
-        safe_dests = [{k:v for k,v in d.items() if k!='password'} for d in dests]
-        return jsonify(safe_dests)
+        return jsonify(strip_passwords(dests))
 
 @app.route('/api/settings/sources/<id>', methods=['DELETE'])
 @admin_required
@@ -356,7 +392,6 @@ def scan_clients():
         for c in all_clients:
             # Check if inactive (restoreOnly=True)
             # User requirement: List all, highlight inactive/recommended
-             
             is_inactive = c.get('restoreOnly', False)
             
             # Filter internal clients
@@ -533,7 +568,6 @@ def create_replication():
     if not incident_num:
          return jsonify({'error': 'Incident/Change Number is required'}), 400
          
-    import re
     safe_suffix = re.sub(r'[^a-zA-Z0-9_\-]', '', incident_num)
     if not safe_suffix:
          return jsonify({'error': 'Invalid characters in Incident Number'}), 400
@@ -730,19 +764,7 @@ def perform_migration_check(limit_group_name=None):
                         status_update['source_count'] = current_s_count
                         
                         # Calculate Source Size
-                        s_bytes = 0
-                        try:
-                            for b in source_backups_list:
-                                # Safe integer conversion
-                                val = b.get('totalBytes') or b.get('totalbytes') or b.get('size') or b.get('bytes') or 0
-                                try:
-                                    s_bytes += int(val)
-                                except:
-                                    pass
-                        except Exception as e:
-                            print(f"Error calculating source size: {e}")
-                        
-                        status_update['source_bytes'] = s_bytes
+                        status_update['source_bytes'] = calculate_backup_size(source_backups_list)
                         
                         # Check Group Membership
                         groups = src_sys.get_client_groups(c['client_cid'])
@@ -829,18 +851,7 @@ def perform_migration_check(limit_group_name=None):
                             status_update['dest_count'] = current_d_count
 
                             # Calculate Dest Size
-                            d_bytes = 0
-                            try:
-                                for b in dest_backups_list:
-                                    val = b.get('totalBytes') or b.get('totalbytes') or b.get('size') or b.get('bytes') or 0
-                                    try:
-                                        d_bytes += int(val)
-                                    except:
-                                        pass
-                            except Exception as e:
-                                print(f"Error calculating dest size: {e}")
-                                
-                            status_update['dest_bytes'] = d_bytes
+                            status_update['dest_bytes'] = calculate_backup_size(dest_backups_list)
 
                         else:
                             status_update['dest_count'] = 0
@@ -953,19 +964,7 @@ def get_job_details(group_name):
         
         if job_record:
             host = job_record['source_system']
-            # ...
-            client = None
-            for s in settings.get_sources():
-                if s['host'] == host:
-                    try:
-                        pw = settings._decrypt(s['password'])
-                        cl = AvamarClient(host, s['user'], pw)
-                        # Fixed usage: _authenticate now returns True or raises
-                        if cl._authenticate():
-                            client = cl
-                            break
-                    except Exception as e:
-                        print(f"Details auth error: {e}")
+            client = get_client_for_host(host, is_source=True)
             
             if client:
                  activity_info = client.get_replication_group_details_full(group_name)
@@ -1000,16 +999,7 @@ def delete_job(group_name):
 
         # 3. Connect to Source
         host = job_record['source_system']
-        client = None
-        for s in settings.get_sources():
-            if s['host'] == host:
-                try:
-                    pw = settings._decrypt(s['password'])
-                    cl = AvamarClient(host, s['user'], pw)
-                    cl._authenticate()
-                    client = cl
-                    break
-                except: pass
+        client = get_client_for_host(host, is_source=True)
         
         if not client:
              return jsonify({'error': 'Could not connect to source system to perform deletion'}), 500
@@ -1071,16 +1061,7 @@ def run_job(group_name):
     host = job_record['source_system']
     
     # Authenticate
-    client = None
-    for s in settings.get_sources():
-        if s['host'] == host:
-            try:
-                pw = settings._decrypt(s['password'])
-                cl = AvamarClient(host, s['user'], pw)
-                cl._authenticate()
-                client = cl
-                break
-            except: pass
+    client = get_client_for_host(host, is_source=True)
 
     if not client:
         return jsonify({'error': 'Could not connect to source system'}), 500
@@ -1112,16 +1093,7 @@ def cancel_job(group_name):
     host = job_record['source_system']
     
     # Authenticate
-    client = None
-    for s in settings.get_sources():
-        if s['host'] == host:
-            try:
-                pw = settings._decrypt(s['password'])
-                cl = AvamarClient(host, s['user'], pw)
-                cl._authenticate()
-                client = cl
-                break
-            except: pass
+    client = get_client_for_host(host, is_source=True)
             
     if not client:
         return jsonify({'error': 'Could not authenticate to Source'}), 500

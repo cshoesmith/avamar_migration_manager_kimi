@@ -1,16 +1,16 @@
 import sqlite3
-import json
 import os
 from datetime import datetime
-
 from werkzeug.security import generate_password_hash
 
 DB_NAME = "migration_status.db"
+
 
 def get_db_connection():
     conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
     return conn
+
 
 def init_db():
     conn = get_db_connection()
@@ -29,13 +29,18 @@ def init_db():
     # Check if admin exists, if not create default users
     c.execute("SELECT * FROM users WHERE username = 'admin'")
     if not c.fetchone():
-        admin_hash = generate_password_hash('avamar') # Default admin password
-        user_hash = generate_password_hash('avamar')  # Default user password
+        # Use environment variable for default password or generate random
+        import secrets
+        default_password = os.environ.get('DEFAULT_ADMIN_PASSWORD')
+        if not default_password:
+            default_password = secrets.token_urlsafe(12)
+            print(f"WARNING: Generated random admin password: {default_password}")
+            print("WARNING: Please change this password immediately after first login!")
+        
+        admin_hash = generate_password_hash(default_password)
         c.execute("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)", 
                  ('admin', admin_hash, 'admin'))
-        c.execute("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)", 
-                 ('user', user_hash, 'user'))
-        print("Initialized default users: admin/avamar, user/avamar")
+        print("Initialized default admin user")
 
     # Table to track the Replication Groups we create
     c.execute('''
@@ -60,6 +65,10 @@ def init_db():
             status TEXT DEFAULT 'PENDING',
             source_backup_count INTEGER DEFAULT 0,
             dest_backup_count INTEGER DEFAULT 0,
+            source_total_bytes INTEGER DEFAULT 0,
+            dest_total_bytes INTEGER DEFAULT 0,
+            dest_client_domain TEXT,
+            in_policy_groups INTEGER DEFAULT 1,
             last_checked_at TIMESTAMP,
             notes TEXT,
             FOREIGN KEY (job_id) REFERENCES replication_jobs (id)
@@ -81,6 +90,7 @@ def init_db():
     conn.commit()
     conn.close()
 
+
 def log_migration_job(group_name, source, destination, client_list):
     """
     client_list should be a list of dicts: {'name': 'server1', 'domain': '/clients', 'id': '...'}
@@ -89,16 +99,13 @@ def log_migration_job(group_name, source, destination, client_list):
     cur = conn.cursor()
     
     try:
-        # Create Job
         cur.execute(
             "INSERT INTO replication_jobs (group_name, source_system, destination_system) VALUES (?, ?, ?)",
             (group_name, source, destination)
         )
         job_id = cur.lastrowid
         
-        # Add Clients
         for client in client_list:
-            # Handle cases where client might be just an ID string or a dict object
             c_name = client.get('name', 'Unknown')
             c_domain = client.get('domain', 'Unknown')
             c_id = client.get('id', '')
@@ -117,6 +124,7 @@ def log_migration_job(group_name, source, destination, client_list):
     finally:
         conn.close()
 
+
 def get_all_migrations():
     conn = get_db_connection()
     cur = conn.cursor()
@@ -133,20 +141,41 @@ def get_all_migrations():
     conn.close()
     return jobs
 
-def get_clients_for_job(group_name):
+
+def get_clients_for_job(job_identifier):
+    """
+    Get clients for a job by either job ID (int) or group name (string).
+    """
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute('''
-        SELECT c.* 
-        FROM migrated_clients c
-        JOIN replication_jobs j ON c.job_id = j.id
-        WHERE j.group_name = ?
-    ''', (group_name,))
+    
+    # Check if identifier is likely an ID (int) or Name (str)
+    is_id = False
+    if isinstance(job_identifier, int):
+        is_id = True
+    elif isinstance(job_identifier, str) and job_identifier.isdigit():
+        is_id = True
+        
+    if is_id:
+        cur.execute('SELECT * FROM migrated_clients WHERE job_id = ?', (job_identifier,))
+    else:
+        # Assume it's a group_name
+        cur.execute('SELECT id FROM replication_jobs WHERE group_name = ?', (job_identifier,))
+        row = cur.fetchone()
+        if row:
+            job_id = row['id']
+            cur.execute('SELECT * FROM migrated_clients WHERE job_id = ?', (job_id,))
+        else:
+            conn.close()
+            return []
+
     clients = [dict(row) for row in cur.fetchall()]
     conn.close()
     return clients
 
-def update_client_status(client_id, source_count=None, dest_count=None, status=None, notes=None, dest_domain=None, source_bytes=None, dest_bytes=None, **kwargs):
+
+def update_client_status(client_id, source_count=None, dest_count=None, status=None, notes=None, 
+                         dest_domain=None, source_bytes=None, dest_bytes=None, **kwargs):
     """
     Update the status of a specific client in the migrated_clients table.
     """
@@ -190,6 +219,7 @@ def update_client_status(client_id, source_count=None, dest_count=None, status=N
         
     conn.close()
 
+
 def get_job_details(job_id):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -199,6 +229,7 @@ def get_job_details(job_id):
     if job:
         return dict(job)
     return None
+
 
 def get_user_by_username(username):
     conn = get_db_connection()
@@ -210,6 +241,7 @@ def get_user_by_username(username):
         return dict(user)
     return None
 
+
 def get_user_by_id(user_id):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -220,34 +252,6 @@ def get_user_by_id(user_id):
         return dict(user)
     return None
 
-def get_clients_for_job(job_identifier):
-    conn = get_db_connection()
-    cur = conn.cursor()
-    
-    # Check if identifier is likely an ID (int) or Name (str)
-    # Using simple heuristic: if it looks like an int, assume ID.
-    is_id = False
-    if isinstance(job_identifier, int):
-        is_id = True
-    elif isinstance(job_identifier, str) and job_identifier.isdigit():
-        is_id = True
-        
-    if is_id:
-        cur.execute('SELECT * FROM migrated_clients WHERE job_id = ?', (job_identifier,))
-    else:
-        # Assume it's a group_name
-        cur.execute('SELECT id FROM replication_jobs WHERE group_name = ?', (job_identifier,))
-        row = cur.fetchone()
-        if row:
-            job_id = row['id']
-            cur.execute('SELECT * FROM migrated_clients WHERE job_id = ?', (job_id,))
-        else:
-            conn.close()
-            return []
-
-    clients = [dict(row) for row in cur.fetchall()]
-    conn.close()
-    return clients
 
 def log_audit_event(user, event_type, description, incident_ref=None):
     try:
@@ -263,6 +267,7 @@ def log_audit_event(user, event_type, description, incident_ref=None):
     finally:
         conn.close()
 
+
 def get_audit_logs(limit=100):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -270,6 +275,7 @@ def get_audit_logs(limit=100):
     logs = [dict(row) for row in cur.fetchall()]
     conn.close()
     return logs
+
 
 def delete_migration_job(job_id):
     try:
@@ -285,18 +291,17 @@ def delete_migration_job(job_id):
     finally:
         conn.close()
 
+
 def reset_configuration():
     """Wipes all migration data and logs, but keeps users"""
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Clear tables
         cur.execute("DELETE FROM migrated_clients")
         cur.execute("DELETE FROM replication_jobs")
         cur.execute("DELETE FROM audit_logs")
         
-        # Reset Auto Increment Counters
         cur.execute("DELETE FROM sqlite_sequence WHERE name='migrated_clients'")
         cur.execute("DELETE FROM sqlite_sequence WHERE name='replication_jobs'")
         cur.execute("DELETE FROM sqlite_sequence WHERE name='audit_logs'")

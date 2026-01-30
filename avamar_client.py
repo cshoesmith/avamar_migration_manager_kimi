@@ -1,47 +1,48 @@
 import requests
 import urllib3
-import json
 import base64
+import os
 from datetime import datetime
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+# SSL verification - configurable via environment variable
+VERIFY_SSL = os.environ.get('VERIFY_SSL', 'True').lower() in ('true', '1', 'yes')
+if not VERIFY_SSL:
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 
 class AvamarClient:
     def __init__(self, host, username, password):
-        self.host = host # save host for raw url construction
-        self.base_url = f"https://{host}" # Changed to root, endpoints will add /api
+        self.host = host
+        self.base_url = f"https://{host}"
         self.username = username
         self.password = password
         self.token = None
         self.session = requests.Session()
-        self.session.verify = False
+        self.session.verify = VERIFY_SSL
         
-        # Static Client Identity similar to the reference project
-        self.client_id = "AvamarMigrator"
-        self.client_secret = "AvamarMigratorSecret123!"
+        # OAuth Client Credentials - configurable via environment
+        self.client_id = os.environ.get('AVAMAR_CLIENT_ID', 'AvamarMigrator')
+        self.client_secret = os.environ.get('AVAMAR_CLIENT_SECRET', 'AvamarMigratorSecret123!')
 
     def get_system_status(self):
         """Checks if the system is reachable and authenticated."""
         try:
-            # If we don't have a token, this will try to get one.
-            # If we do, we might want to verify it's valid by making a cheap call.
             if not self.token:
                 self._authenticate()
             
             # Make a cheap call to verify API responsiveness
-            # /v1/domains?recursive=false is usually fast
             resp = self._request('GET', '/v1/domains', params={'domain': '/', 'recursive': 'false'})
             if resp.status_code == 200:
-                return True
-            return False
+                return resp.json()
+            return None
         except Exception as e:
             print(f"System status check failed: {e}")
-            raise e
+            raise
 
     def _authenticate(self):
         print(f"Starting Authentication logic for {self.host}...")
         
-        # Try to get token first (assuming client might already exist)
+        # Try to get token first
         token = self._get_access_token()
         if token:
             self.token = token
@@ -51,7 +52,6 @@ class AvamarClient:
         # If failed, try to register the client
         print("Token retrieval failed. Attempting to register OAuth client...")
         if self._create_oauth_client():
-            # Retry token
             token = self._get_access_token()
             if token:
                 self.token = token
@@ -63,7 +63,6 @@ class AvamarClient:
     def _create_oauth_client(self):
         url = f"{self.base_url}/api/v1/oauth2/clients"
         
-        # Basic Auth with User Credentials
         auth_string = f"{self.username}:{self.password}"
         auth_header = base64.b64encode(auth_string.encode()).decode()
         
@@ -92,8 +91,6 @@ class AvamarClient:
                 print("Client likely already exists.")
                 return True
             
-            # User request: Treat 401 as indication that client exists/reusable 
-            # (e.g. if we lack permission to create but it's there)
             if resp.status_code == 401:
                 print("Client registration returned 401. Assuming client exists and proceeding.")
                 return True
@@ -107,7 +104,6 @@ class AvamarClient:
     def _get_access_token(self):
         url = f"{self.base_url}/api/oauth/token"
         
-        # Basic Auth with Client Credentials
         auth_string = f"{self.client_id}:{self.client_secret}"
         auth_header = base64.b64encode(auth_string.encode()).decode()
         
@@ -137,19 +133,6 @@ class AvamarClient:
         if not self.token:
             self._authenticate()
 
-        # Endpoint passed usually starts with /v1/... but base_url is just host
-        # We need to ensure we hit /api/v1 OR whatever the caller expects.
-        # Original code had self.base_url = .../api
-        # Reference project uses URLs like {base_url}/api/v1/...
-        
-        # Let's standardize: 
-        # If endpoint starts with /, append to base_url + /api
-        # But wait, reference used /api/v1/oauth2/clients but /api/oauth/token
-        # It seems the /api prefix is common.
-        
-        # The methods below (get_clients etc) use /v1/clients.
-        # So we should construct: https://host/api/v1/clients
-        
         url = f"{self.base_url}/api{endpoint}"
         
         headers = {
@@ -166,8 +149,9 @@ class AvamarClient:
                 self._authenticate()
                 headers['Authorization'] = f"Bearer {self.token}"
                 response = self.session.request(method, url, params=params, json=json_data, headers=headers)
-            except:
-                pass 
+            except Exception as e:
+                print(f"Re-authentication failed: {e}")
+                raise
                 
         return response
 
@@ -187,11 +171,6 @@ class AvamarClient:
                 break
                 
             data = resp.json()
-            # The schema showed Page«Client» but didn't explicitly show 'content'. 
-            # Spring Hateoas/Data usually puts items in 'content' or 'clients'.
-            # Based on common Avamar API, it might be 'content'.
-            
-            # Let's inspect the first response structure in the app logic or assume 'content'
             current_batch = data.get('content', [])
             if not current_batch:
                 break
@@ -204,11 +183,13 @@ class AvamarClient:
         return clients
 
     def get_client_by_name(self, name, domain='/'):
-        # Try to find specific client using filter
+        """Find client by name with proper escaping to prevent injection."""
+        # Escape single quotes in name to prevent filter injection
+        safe_name = name.replace("'", "''")
         params = {
             'domain': domain,
             'recursive': 'true',
-            'filter': f"name=='{name}'"
+            'filter': f"name=='{safe_name}'"
         }
         resp = self._request('GET', '/v1/clients', params=params)
         if resp.status_code == 200:
@@ -218,7 +199,6 @@ class AvamarClient:
         return None
 
     def get_domains(self, path='/'):
-        # Get immediate sub-domains of a path
         params = {
             'domain': path,
             'recursive': 'false'
@@ -230,7 +210,6 @@ class AvamarClient:
                 return data
             return data.get('content', [])
         return []
-
 
     def get_client_groups(self, cid):
         """Get backup groups this client belongs to"""
@@ -245,7 +224,6 @@ class AvamarClient:
             return resp.json().get('content', [])
         return []
 
-
     def get_replication_destinations(self):
         resp = self._request('GET', '/v1/replication/destinations')
         if resp.status_code == 200:
@@ -256,12 +234,25 @@ class AvamarClient:
         return []
 
     def get_replication_groups(self):
-        resp = self._request('GET', '/v1/replication/groups')
-        if resp.status_code == 200:
-             data = resp.json()
-             if isinstance(data, list): return data
-             return data.get('content', [])
-        return []
+        """Get all replication groups with pagination."""
+        groups = []
+        page = 0
+        while True:
+            params = {'page': page, 'size': 100}
+            resp = self._request('GET', '/v1/replication/groups', params=params)
+            if resp.status_code != 200:
+                break
+            
+            data = resp.json()
+            curr = data.get('content', [])
+            if not curr:
+                break
+            
+            groups.extend(curr)
+            if data.get('last', True):
+                break
+            page += 1
+        return groups
 
     def delete_replication_group(self, group_id_or_name):
         resp = self._request('DELETE', f'/v1/replication/groups/{group_id_or_name}')
@@ -272,20 +263,12 @@ class AvamarClient:
         return resp
 
     def get_client_by_id(self, cid):
-        # Try direct access
         resp = self._request('GET', f'/v1/clients/{cid}')
         if resp.status_code == 200:
             return resp.json()
         return None
 
     def create_replication_destination(self, name, address, user, password, ddr_index=None):
-        # We need to register the destination on the source system so it knows where to send data.
-        # This typically involves:
-        # 1. Defining the system name/IP
-        # 2. Providing replication credentials (user/pass of the DESTINATION system)
-        
-        # Note: The endpoint is typically /v1/replication/destinations
-        
         payload = {
             "name": name,
             "description": f"Target: {address}",
@@ -298,7 +281,6 @@ class AvamarClient:
         return resp
 
     def get_schedules(self):
-        clients = []
         page = 0
         all_sch = []
         while True:
@@ -319,12 +301,9 @@ class AvamarClient:
         return all_sch
 
     def create_replication_group(self, name, client_cids, dest_id):
-        # 1. Use Default Schedule
-        # User specified hardcoded ID for stability
         schedule_id = "Default:REPL_SCHEDULEID"
         print(f"Using Hardcoded Schedule ID: {schedule_id}")
 
-        # Construct Payload matching user's Chrome DevTools observation
         payload = {
             "allBackups": True,
             "allClients": False,
@@ -388,11 +367,8 @@ class AvamarClient:
         return resp
 
     def create_retention_policy(self, name):
-        """Creates a dedicated Replication Retention Policy based on user example"""
-        # User provided example uses 'expireDate' even for DURATION type.
-        # We will generate a future date just in case it's required by validation
-        import datetime
-        future_date = (datetime.datetime.now() + datetime.timedelta(days=60)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        """Creates a dedicated Replication Retention Policy."""
+        future_date = (datetime.now() + __import__('datetime').timedelta(days=60)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
         payload = {
             "basicRetentionType": "DURATION",
@@ -410,12 +386,12 @@ class AvamarClient:
             "weeklyTagUnit": "WEEKS",
             "yearlyTag": 0,
             "yearlyTagUnit": "YEARS",
-            "policyType" : "REPLICATION"
+            "policyType": "REPLICATION"
         }
         print(f"Creating new Retention Policy: {name} in domain /")
         resp = self._request('POST', '/v1/retentions', json_data=payload)
         if resp.status_code == 201:
-            return resp.json() # Should return the created policy object
+            return resp.json()
         elif resp.status_code == 200:
              return resp.json()
         print(f"Failed to create retention policy: {resp.status_code} {resp.text}")
@@ -427,15 +403,17 @@ class AvamarClient:
         while True:
             params = {'page': page, 'size': 100}
             resp = self._request('GET', '/v1/retentions', params=params)
-             # If 404 or error, break
-            if resp.status_code != 200: break
+            if resp.status_code != 200:
+                break
             
             data = resp.json()
             curr = data.get('content', [])
-            if not curr: break
+            if not curr:
+                break
             
             all_ret.extend(curr)
-            if data.get('last', True): break
+            if data.get('last', True):
+                break
             page += 1
         return all_ret
 
@@ -443,26 +421,8 @@ class AvamarClient:
          resp = self._request('POST', f"/v1/replication/groups/{group_id}/run")
          return resp
 
-    def get_replication_groups(self):
-        groups = []
-        page = 0
-        while True:
-            params = {'page': page, 'size': 100}
-            resp = self._request('GET', '/v1/replication/groups', params=params)
-            if resp.status_code != 200: break
-            
-            data = resp.json()
-            curr = data.get('content', [])
-            if not curr: break
-            
-            groups.extend(curr)
-            if data.get('last', True): break
-            page += 1
-        return groups
-
     def get_replication_group_details_full(self, group_name):
-        """Returns complex object with status, start/end times"""
-        # 1. Find the group first to confirm existence
+        """Returns complex object with status, start/end times."""
         groups = self.get_replication_groups()
         target_group = next((g for g in groups if g.get('name') == group_name), None)
         
@@ -479,8 +439,6 @@ class AvamarClient:
             info['status'] = "Group Not Found"
             return info
             
-        # 2. Check Activity for this group
-        # Use targeted filtering as per user requirement
         fqdn = f"/{group_name}" if not group_name.startswith('/') else group_name
         
         params = {
@@ -498,36 +456,25 @@ class AvamarClient:
         
         if resp.status_code == 200:
             matches = resp.json().get('content', [])
-            print(f"DEBUG: Found {len(matches)} activities for group {group_name}")
+            # Debug: Found activities for group
 
         if matches:
-            # Sort manually by activatedDate or queuedDate (ISO strings)
-            # Latest date first
             def get_sort_key(a):
                 return a.get('activatedDate') or a.get('queuedDate') or a.get('scheduledDate') or a.get('startedTime') or ""
                 
             matches.sort(key=get_sort_key, reverse=True)
             found_activity = matches[0]
             
-            # Debug
-            print(f"DEBUG: Found Activity keys: {list(found_activity.keys())}")
-            print(f"DEBUG: Selected Activity Status: {found_activity.get('status')} / {found_activity.get('state')}")
+            # Activity found and parsed
 
-            # Avamar API 7.x+ uses 'state' for activity status, older or different endpoints use 'status'
             st = found_activity.get('state') or found_activity.get('status')
             
             info['status'] = st
             info['startTime'] = get_sort_key(found_activity)
             info['endTime'] = found_activity.get('completedDate') or found_activity.get('completedTime')
             
-            # Calculate Duration
-            # Prefer elapsed time from API if available
             elapsed_ms = found_activity.get('elapsedTime')
             if elapsed_ms:
-                 # It says int64, usually ms in Java world, but "elapsed time since queued" might be seconds? 
-                 # Avamar rest api docs usually use ms for durations? or seconds?
-                 # Let's assume ms if huge, seconds if small.
-                 # Actually, usually 'elapsedTime' in these DTOs is milliseconds.
                  seconds = int(elapsed_ms) / 1000
                  m, s = divmod(seconds, 60)
                  h, m = divmod(m, 60)
@@ -535,31 +482,26 @@ class AvamarClient:
             
             elif info['startTime'] and info['endTime']:
                 try:
-                    # Simple parser for ISO 8601
                     def parse_iso(ps):
-                        # Handle fractional seconds if needed or 'Z'
                         return datetime.fromisoformat(ps.replace('Z', '+00:00'))
                         
                     start_dt = parse_iso(info['startTime'])
                     end_dt = parse_iso(info['endTime'])
                     diff = end_dt - start_dt
                     
-                    # Format as HH:MM:SS
                     total_seconds = int(diff.total_seconds())
                     hours, remainder = divmod(total_seconds, 3600)
                     minutes, seconds = divmod(remainder, 60)
                     info['duration'] = f"{hours}h {minutes}m {seconds}s"
-                except Exception as e:
+                except Exception:
                     info['duration'] = None
             else:
                 info['duration'] = None
 
-            # Extract stats
             stats = found_activity.get('stats', {})
             info['bytes_scanned'] = stats.get('bytesProcessed', 0)
             info['bytes_sent'] = stats.get('bytesSent', 0)
             
-            # Try to map status to simpler UI terms
             if st in ['RUNNING', 'QUEUED']:
                 info['ui_status'] = "Active"
             elif st in ['FAILED', 'COMPLETED_WITH_ERRORS']:
@@ -575,22 +517,13 @@ class AvamarClient:
         return info
 
     def get_replication_group_status(self, group_name):
-        # Wrapper for backward compatibility or simple lists
         details = self.get_replication_group_details_full(group_name)
         return details.get('ui_status', 'Unknown')
 
-    def get_system_status(self):
-        resp = self._request('GET', '/v1/system/status')
-        if resp.status_code == 200:
-            return resp.json()
-        return None
-
     def stop_replication_activity(self, group_name):
-        """Finds and cancels running activity for group"""
-        # 1. Find the running activity
+        """Finds and cancels running activity for group."""
         fqdn = f"/{group_name}" if not group_name.startswith('/') else group_name
         
-        # We need to find valid running/queued activities
         params = {
             'domain': '/', 
             'duration': 0,
@@ -608,7 +541,6 @@ class AvamarClient:
             
         activities = resp.json().get('content', [])
         
-        # Active states: RUNNING, QUEUED, WAITING
         active_states = ['RUNNING', 'QUEUED', 'WAITING']
         
         target_activity = None
@@ -625,12 +557,9 @@ class AvamarClient:
         if not act_id:
              return {"error": "Activity found but has no ID."}
              
-        # 2. Cancel it
-        # Try /v1/activities/{id}/cancel
         resp_cancel = self._request('POST', f'/v1/activities/{act_id}/cancel')
         
         if resp_cancel.status_code in [200, 202, 204]:
              return {"status": "success", "message": "Stop command sent."}
         else:
              return {"error": f"Failed to stop activity: {resp_cancel.status_code} {resp_cancel.text}"}
-

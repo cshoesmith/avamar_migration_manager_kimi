@@ -1,9 +1,11 @@
 import json
 import os
+import uuid
 from cryptography.fernet import Fernet
 
 CONFIG_FILE = 'config.json'
 KEY_FILE = 'secret.key'
+
 
 class SettingsManager:
     def __init__(self):
@@ -26,29 +28,36 @@ class SettingsManager:
         try:
             with open(CONFIG_FILE, 'r') as f:
                 return json.load(f)
-        except:
-             return {"sources": [], "destinations": []}
+        except (json.JSONDecodeError, IOError):
+            return {"sources": [], "destinations": []}
 
     def _save_config(self):
         with open(CONFIG_FILE, 'w') as f:
             json.dump(self.config, f, indent=4)
 
     def _encrypt(self, text):
-        if not text: return ""
+        if not text:
+            return ""
         return self.cipher_suite.encrypt(text.encode()).decode()
 
     def _decrypt(self, text):
-        if not text: return ""
+        if not text:
+            return ""
         try:
             return self.cipher_suite.decrypt(text.encode()).decode()
-        except:
-            return text # Fallback or error
+        except Exception:
+            return text
+
+    def _generate_id(self, items):
+        """Generate a unique ID that won't collide after deletions."""
+        existing_ids = {item.get('id') for item in items if item.get('id')}
+        new_id = str(uuid.uuid4())[:8]  # Use first 8 chars of UUID
+        # Ensure uniqueness in unlikely case of collision
+        while new_id in existing_ids:
+            new_id = str(uuid.uuid4())[:8]
+        return new_id
 
     def get_sources(self):
-        # Return list without passwords exposed preferably? 
-        # For the UI list we don't need passwords.
-        # But for 'get_client' we do.
-        # Let's return full structure but we will strip passwords in the API layer.
         return self.config.get('sources', [])
 
     def get_destinations(self):
@@ -71,17 +80,19 @@ class SettingsManager:
         return None
 
     def add_source(self, data):
-        new_id = str(len(self.config.get('sources', [])) + 1)
-        if isinstance(data, dict):
-            name = data.get('name')
-            host = data.get('host')
-            user = data.get('user')
-            password = data.get('password')
-        else:
-             return None 
+        if not isinstance(data, dict):
+            raise ValueError("Data must be a dictionary")
+        
+        name = data.get('name')
+        host = data.get('host')
+        user = data.get('user')
+        password = data.get('password')
+        
+        if not all([name, host, user, password]):
+            raise ValueError("Missing required fields: name, host, user, password")
 
         entry = {
-            "id": new_id,
+            "id": self._generate_id(self.config.get('sources', [])),
             "name": name,
             "host": host,
             "user": user,
@@ -92,15 +103,19 @@ class SettingsManager:
         return entry
 
     def add_destination(self, data):
-        new_id = str(len(self.config.get('destinations', [])) + 1)
-        if isinstance(data, dict):
-            name = data.get('name')
-            host = data.get('host')
-            user = data.get('user')
-            password = data.get('password')
+        if not isinstance(data, dict):
+            raise ValueError("Data must be a dictionary")
         
+        name = data.get('name')
+        host = data.get('host')
+        user = data.get('user')
+        password = data.get('password')
+        
+        if not all([name, host, user, password]):
+            raise ValueError("Missing required fields: name, host, user, password")
+
         entry = {
-            "id": new_id,
+            "id": self._generate_id(self.config.get('destinations', [])),
             "name": name,
             "host": host,
             "user": user,
