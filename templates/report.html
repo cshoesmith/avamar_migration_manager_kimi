@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Migration Status Report</title>
+    <style>
+        body { font-family: "Segoe UI", Arial, sans-serif; color: #333; margin: 0; padding: 20px; font-size: 12px; }
+        
+        @media print {
+            .no-print { display: none; }
+            body { padding: 0; }
+            table { page-break-inside: auto; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
+            @page { margin: 0; size: auto; }
+        }
+
+        .header { border-bottom: 2px solid #0076CE; padding-bottom: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
+        .logo { font-size: 24px; color: #0076CE; }
+        .logo strong { font-weight: 600; }
+        .meta { text-align: right; color: #666; }
+
+        .section { margin-bottom: 30px; }
+        .section-title { font-size: 16px; font-weight: bold; background: #eee; padding: 8px; margin-bottom: 10px; border-left: 4px solid #0076CE; }
+
+        .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .config-box { border: 1px solid #ddd; padding: 10px; border-radius: 4px; }
+        .config-box h4 { margin: 0 0 5px 0; color: #0076CE; font-size: 14px; }
+
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px; }
+        th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+        th { background-color: #f9f9f9; color: #444; font-weight: 600; }
+        
+        .status-sync { color: green; font-weight: bold; }
+        .status-syncing { color: orange; font-weight: bold; }
+        .status-fail { color: red; font-weight: bold; }
+        
+        .badge { padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; }
+        .badge-active { background: #ffeeba; color: #856404; } /* Yellow/Warning */
+        .badge-inactive { background: #d4edda; color: #155724; } /* Green/Good */
+
+        .summary-bar { display: flex; gap: 20px; margin-bottom: 15px; font-weight: bold; }
+        
+        .report-title { font-size: 20px; color: #444; margin: 0 0 15px 0; font-weight: 300; text-transform: uppercase; letter-spacing: 1px; }
+    </style>
+</head>
+<body>
+    <div class="no-print" style="margin-bottom: 20px; text-align: right;">
+        <button onclick="window.print()" style="padding: 10px 20px; background: #0076CE; color: white; border: none; cursor: pointer;">Print / Save PDF</button>
+    </div>
+
+    <div class="header">
+        <div class="logo">Dell <strong>Avamar</strong> Replication Manager</div>
+        <div class="meta">
+            <div>Generated: {{ generated_at }}</div>
+            <div>User: {{ current_user.username }}</div>
+        </div>
+    </div>
+
+    <h2 class="report-title">Migration Status Report</h2>
+
+    <div class="config-grid">
+        <div class="config-box">
+            <h4>Source System(s)</h4>
+            {% for s in sources %}
+            <div><strong>{{ s.name }}</strong> ({{ s.host }}) - {{ s.user }}</div>
+            {% else %}
+            <div>No Source Configured</div>
+            {% endfor %}
+        </div>
+        <div class="config-box">
+            <h4>Destination System(s)</h4>
+            {% for d in destinations %}
+            <div><strong>{{ d.name }}</strong> ({{ d.host }}) - {{ d.user }}</div>
+            {% else %}
+            <div>No Destination Configured</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {% for job in jobs %}
+    <div class="section">
+        <div class="section-title">
+            Replication Group: {{ job.group_name }} 
+            <span style="float:right; font-weight:normal; font-size:12px;">Created: {{ job.created_at }}</span>
+        </div>
+        
+        <div class="summary-bar">
+            <span>Total Clients: {{ job.client_details|length }}</span>
+            <span style="color:green">Synced: {{ job.stats.synced }}</span>
+            <span style="color:red">Pending: {{ job.stats.pending }}</span>
+            <span>Completion: {{ job.percent_complete }}%</span>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th width="20%">Client Name</th>
+                    <th width="30%">FQDN Domains (Source / Dest)</th>
+                    <th width="10%">Sync Status</th>
+                    <th width="15%">Backups (Src / Dest)</th>
+                    <th width="10%">Policy Status</th>
+                    <th width="15%">Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in job.client_details %}
+                <tr>
+                    <td><strong>{{ c.client_name }}</strong></td>
+                    <td>
+                        <div style="color:#666">S: {{ c.client_domain }}</div>
+                        {% if c.dest_client_domain %}
+                        <div style="color:#0076CE">D: {{ c.dest_client_domain }}</div>
+                        {% else %}
+                        <div style="color:red">D: Not Found</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if c.status == 'SYNCED' %}
+                            <span class="status-sync">✓ SYNCED</span>
+                        {% elif c.status == 'SYNCING' or c.status == 'REPLICATING' %}
+                            <span class="status-syncing">↻ {{ c.status }}</span>
+                        {% else %}
+                            <span class="status-fail">{{ c.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ c.source_backup_count }} / {{ c.dest_backup_count }}
+                        <br>
+                        <span style="color:#999; font-size:10px;">{{ c.source_total_bytes|filesizeformat }}</span>
+                    </td>
+                    <td>
+                        {% if c.in_policy_groups %}
+                            <span class="badge badge-active">Active</span>
+                        {% else %}
+                            <span class="badge badge-inactive">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ c.notes }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endfor %}
+
+    <div style="text-align: center; color: #999; margin-top: 40px; border-top: 1px solid #eee; padding-top: 10px;">
+        End of Report
+    </div>
+</body>
+</html>

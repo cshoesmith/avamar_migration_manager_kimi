@@ -1,0 +1,20 @@
+{
+    "sources": [
+        {
+            "id": "1",
+            "name": "avamar1.lab",
+            "host": "192.168.0.200",
+            "user": "MCUser",
+            "password": "gAAAAABpeJE71xc6BrK7ZElnMGqks_TLGCZ51wGNUrGxayhALa6aWcOj2TH1Coh0Rh8XiZSr4aCseQ9S9ZEotQ9bmt67qrRRxA=="
+        }
+    ],
+    "destinations": [
+        {
+            "id": "1",
+            "name": "avamar2.lab",
+            "host": "192.168.0.220",
+            "user": "MCUser",
+            "password": "gAAAAABpeJE-X47VCr3tE3wNrBj7SEBkmEkRPT3NhyvkywhqCahtqUsdo2yR32gU0EIeaihkjM8Qccf902Of0t7weRIEMcyXQg=="
+        }
+    ]
+}

@@ -1,0 +1,607 @@
+from flask import Flask, render_template, jsonify, request, make_response
+from avamar_client import AvamarClient
+from settings_manager import SettingsManager
+import database
+import json
+
+app = Flask(__name__)
+settings = SettingsManager()
+
+# Pre-populate settings if empty (Migration logic for existing users or demo)
+# In reality we would let the user add them.
+
+# In-memory "database"
+candidates_cache = []
+# replication_groups stored in SQLite now
+
+def get_client_by_id(is_source, id):
+    if is_source:
+        conf = settings.get_source_by_id(id)
+    else:
+        conf = settings.get_destination_by_id(id)
+    
+    if conf:
+        return AvamarClient(conf['host'], conf['user'], conf['password'])
+    return None
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/api/settings/sources', methods=['GET', 'POST'])
+def handle_sources():
+    if request.method == 'POST':
+        data = request.json
+        settings.add_source(data['name'], data['host'], data['user'], data['password'])
+        return jsonify({'status': 'ok'})
+    else:
+        sources = settings.get_sources()
+        # Remove passwords for frontend
+        safe_sources = [{k:v for k,v in s.items() if k!='password'} for s in sources]
+        return jsonify(safe_sources)
+
+@app.route('/api/settings/destinations', methods=['GET', 'POST'])
+def handle_destinations():
+    if request.method == 'POST':
+        data = request.json
+        settings.add_destination(data['name'], data['host'], data['user'], data['password'])
+        return jsonify({'status': 'ok'})
+    else:
+        dests = settings.get_destinations()
+        safe_dests = [{k:v for k,v in d.items() if k!='password'} for d in dests]
+        return jsonify(safe_dests)
+
+@app.route('/api/settings/sources/<id>', methods=['DELETE'])
+def delete_source(id):
+    settings.delete_source(id)
+    return jsonify({'status': 'ok'})
+
+@app.route('/api/settings/destinations/<id>', methods=['DELETE'])
+def delete_dest(id):
+    settings.delete_destination(id)
+    return jsonify({'status': 'ok'})
+
+@app.route('/api/system/health', methods=['GET'])
+def system_health():
+    # Use IDs from query or cookies.
+    # User requested storing selection in cookie.
+    
+    source_id = request.args.get('source_id') or request.cookies.get('source_id')
+    dest_id = request.args.get('dest_id') or request.cookies.get('dest_id')
+    
+    health = {
+        "source": {"host": "None Selected", "status": "Unknown"},
+        "destination": {"host": "None Selected", "status": "Unknown"}
+    }
+    
+    if source_id:
+        client = get_client_by_id(True, source_id)
+        if client:
+            health["source"]["host"] = settings.get_source_by_id(source_id)['host']
+            try:
+                s_status = client.get_system_status()
+                health["source"]["status"] = "Online" if s_status else "Error"
+            except Exception as e:
+                health["source"]["status"] = f"Error: {str(e)}"
+        else:
+             health["source"]["status"] = "Invalid ID"
+
+    if dest_id:
+        client = get_client_by_id(False, dest_id)
+        if client:
+            health["destination"]["host"] = settings.get_destination_by_id(dest_id)['host']
+            try:
+                d_status = client.get_system_status()
+                health["destination"]["status"] = "Online" if d_status else "Error"
+            except Exception as e:
+                health["destination"]["status"] = f"Error: {str(e)}"
+        else:
+            health["destination"]["status"] = "Invalid ID"
+        
+    return jsonify(health)
+
+@app.route('/api/scan', methods=['POST'])
+def scan_clients():
+    global candidates_cache
+    
+    try:
+        # Get source_id from JSON body, Query Args, or Cookies
+        data = request.get_json(silent=True) or {}
+        source_id = data.get('source_id') or request.args.get('source_id') or request.cookies.get('source_id')
+        
+        if not source_id:
+             return jsonify({'error': 'No Source System Selected'}), 400
+             
+        client = get_client_by_id(True, source_id)
+        if not client:
+            return jsonify({'error': 'Invalid Source ID'}), 400
+
+        # 1. Get all clients
+        # 1. Get all clients
+        all_clients = client.get_clients()
+        candidates = []
+        
+        # 2. Filter logic
+        for c in all_clients:
+            # Check if inactive (restoreOnly=True)
+            # User requirement: List all, highlight inactive/recommended
+             
+            is_inactive = c.get('restoreOnly', False)
+            has_backups = c.get('totalBackups', 0) > 0
+            
+            status_label = "Active"
+            if is_inactive:
+                status_label = "Inactive (Restore Only)"
+
+            # We can use this flag in UI to highlight or sort
+            is_candidate = is_inactive and has_backups
+
+            candidates.append({
+                'id': c['id'],
+                'name': c['name'],
+                'domain': c['domainFqdn'],
+                'totalBackups': c['totalBackups'],
+                'lastBackup': c.get('lastBackupTime'),
+                'status': status_label,
+                'is_candidate': is_candidate
+            })
+        
+        # Sort: Candidates first, then by name
+        candidates.sort(key=lambda x: (not x['is_candidate'], x['name']))
+        
+        candidates_cache = candidates
+        return jsonify({'count': len(candidates), 'candidates': candidates})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/candidates', methods=['GET'])
+def get_candidates():
+    return jsonify(candidates_cache)
+
+@app.route('/api/destinations', methods=['GET'])
+def get_destinations():
+    source_id = request.args.get('source_id') or request.cookies.get('source_id')
+    if not source_id: return jsonify({'error': 'No Source Selected'}), 400
+    
+    client = get_client_by_id(True, source_id)
+    try:
+        dests = client.get_replication_destinations()
+        return jsonify(dests)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/replicate', methods=['POST'])
+def create_replication():
+    data = request.get_json(silent=True) or {}
+    
+    source_id = data.get('source_id') or request.cookies.get('source_id')
+    if not source_id: return jsonify({'error': 'No Source Selected'}), 400
+    
+    client = get_client_by_id(True, source_id)
+    if not client:
+        return jsonify({'error': 'Source Client not found. Please check settings.'}), 400
+    
+    # ... rest of logic
+    
+    # Step 1: Handle Destination
+    # The ID passed here is from our local 'settings_manager' (dest_id) which corresponds to an entry in config.json
+    # We must see if this destination exists on the ACTUAL Avamar Source system.
+
+    dest_id = data.get('destinationId')
+    dest_config = settings.get_destination_by_id(dest_id) # Our local config
+    if not dest_config:
+        return jsonify({'error': 'Local Destination Config not found'}), 400
+        
+    dest_ip = dest_config['host']
+    dest_user = dest_config['user']
+    dest_pw = dest_config['password'] # We need to decrypt this if SettingsManager doesn't
+    # SettingsManager returns plain dict, assuming it handles decryption: 
+    # Let's check settings_manager.py... 
+    # Actually SettingsManager decrypts on get_* methods.
+    
+    # Check if Destination Exists on Source Avamar
+    real_dest_id = None
+    try:
+        existing_dests = client.get_replication_destinations()
+        # Ensure it's a list even if API wraps it or returns single object
+        if isinstance(existing_dests, dict): existing_dests = [existing_dests]
+            
+        for d in existing_dests:
+            # Match by host/IP or name? Avamar stores 'host' usually.
+            # d is expected to be a dict, but error implies it's not somehow?
+            # Or get_replication_destinations returned something unexpected
+            if not isinstance(d, dict): continue
+            
+            if d.get('host') == dest_ip or d.get('name') == dest_config['name']:
+                real_dest_id = d.get('id')
+                break
+        
+        # If not found, Create it!
+        if not real_dest_id:
+            print(f"Destination {dest_ip} not found on source. Creating...")
+            resp = client.create_replication_destination(
+                dest_config['name'], 
+                dest_ip, 
+                dest_user, 
+                dest_pw
+            )
+            if resp.status_code >= 300:
+                return jsonify({'error': f"Failed to create replication destination: {resp.text}"}), 400
+            
+            # Use the ID from the creation response
+            # Response might be the object or just ID 
+            # (Assuming Avamar returns created object or 201 with Location)
+            # Standard Avamar tends to return the object.
+            new_d = resp.json()
+            real_dest_id = new_d.get('id')
+            if not real_dest_id:
+                 # Fetch list again as fallback
+                 existing_dests = client.get_replication_destinations()
+                 for d in existing_dests:
+                    if d.get('host') == dest_ip:
+                        real_dest_id = d['id']
+                        break
+    except Exception as e:
+        return jsonify({'error': f"Error validating destination: {str(e)}"}), 500
+
+    if not real_dest_id:
+        return jsonify({'error': 'Could not determine Avamar Destination ID (Creation failed?)'}), 500
+
+    cids = data.get('candidates', [])
+    if not cids:
+        return jsonify({'error': 'No candidates selected'}), 400
+    
+    # Resolve Client Names from Cache
+    client_details = []
+    for cid in cids:
+        match = next((c for c in candidates_cache if c.get('id') == cid), None)
+        if match:
+             client_details.append(match)
+        else:
+             client_details.append({'id': cid, 'name': 'Unknown', 'domain': 'Unknown'})
+
+    # Use timestamp for unique name
+    import time
+    group_name = f"Migration_{int(time.time())}"
+    
+    try:
+        # Create Group using REAL Avamar ID
+        resp = client.create_replication_group(group_name, cids, real_dest_id)
+        if resp.status_code >= 300:
+             return jsonify({'error': resp.text}), 400
+             
+        group_data = resp.json()
+        
+        # Store for tracking
+        database.log_migration_job(
+            group_name, 
+            settings.get_source_by_id(source_id)['host'],
+            dest_config['host'],
+            client_details
+        )
+        
+        return jsonify({'message': 'Group Created', 'group': group_data})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/replication/status', methods=['GET'])
+def replication_status():
+    jobs = database.get_all_migrations()
+    
+    # We want live status for the replication group
+    clients = {} # host -> client_obj
+    
+    def get_cached_client(host):
+        if host in clients: return clients[host]
+        
+        # Check settings
+        # settings.get_sources() returns the list of dicts with encrypted passwords
+        for s in settings.get_sources():
+            if s['host'] == host:
+                try:
+                    pw = settings._decrypt(s['password'])
+                    cl = AvamarClient(host, s['user'], pw)
+                    cl._authenticate()
+                    clients[host] = cl
+                    return cl
+                except Exception as e:
+                    print(f"Auth failed for {host}: {e}")
+                    return None
+        return None
+
+    for job in jobs:
+        # job has group_name, source_system, etc.
+        host = job['source_system']
+        client = get_cached_client(host)
+        
+        if client:
+            try:
+                # Get live status from Avamar
+                status = client.get_replication_group_status(job['group_name'])
+                job['status'] = status
+            except Exception as e:
+                # If error, indicate it but keep the job entry
+                job['status'] = f"Check Failed: {str(e)}"
+        else:
+             if job['status'] == 'ACTIVE': 
+                 job['status'] = "Active (Source Unreachable)"
+    
+    return jsonify(jobs)
+
+def perform_migration_check(limit_group_name=None):
+    try:
+        print("DEBUG: Starting perform_migration_check")
+        jobs = database.get_all_migrations()
+        
+        if limit_group_name:
+            jobs = [j for j in jobs if j['group_name'] == limit_group_name]
+
+        # We need to map source/dest hosts to credentials
+        sources_conf = settings.get_sources()
+        dests_conf = settings.get_destinations()
+
+    
+    # Cache clients
+    source_clients = {} # ip -> AvamarClient
+    dest_clients = {}   # ip -> AvamarClient
+    
+    def get_client(is_source, host):
+        cache = source_clients if is_source else dest_clients
+        if host in cache: return cache[host]
+        
+        candidates = sources_conf if is_source else dests_conf
+        # Match by host
+        conf = next((x for x in candidates if x['host'] == host), None)
+        if conf:
+            try:
+                # Decrypt if needed (get_sources returns encrypted pw in 'password' field)
+                # settings.get_source_by_id decrypts it, but we have the raw list.
+                # Let's assume we need to decrypt.
+                pw = settings._decrypt(conf['password'])
+                ac = AvamarClient(conf['host'], conf['user'], pw)
+                
+                # Test auth
+                # _authenticate now returns True or raises
+                if ac._authenticate():
+                    cache[host] = ac
+                    return ac
+            except Exception as e:
+                print(f"Failed to connect to {host}: {e}")
+        return None
+
+    results = []
+
+    for job in jobs:
+        group_name = job['group_name']
+        clients = database.get_clients_for_job(group_name)
+        
+        s_host = job['source_system']
+        d_host = job['destination_system']
+        
+        src_sys = get_client(True, s_host)
+        dst_sys = get_client(False, d_host)
+        
+        for c in clients:
+            status_update = {}
+            notes = []
+            
+            # 1. Source Check
+            if src_sys:
+                try:
+                    # Check backups (Source)
+                    backups = src_sys.get_client_backups(c['client_cid'])
+                    current_s_count = len(backups)
+                    status_update['source_count'] = current_s_count
+                    
+                    # Calculate Source Size
+                    s_bytes = 0
+                    try:
+                        if backups and isinstance(backups, list):
+                            # Debug: print keys of first item if checking manually
+                            # if len(backups) > 0: print(f"DEBUG Backup Keys: {backups[0].keys()}")
+                            for b in backups:
+                                # Safe integer conversion
+                                val = b.get('totalBytes') or b.get('totalbytes') or b.get('size') or b.get('bytes') or 0
+                                try:
+                                    s_bytes += int(val)
+                                except:
+                                    pass
+                    except Exception as e:
+                        print(f"Error calculating source size: {e}")
+                    
+                    status_update['source_bytes'] = s_bytes
+                    
+                    # Check Group Membership
+                    groups = src_sys.get_client_groups(c['client_cid'])
+                    if groups:
+                        notes.append(f"In {len(groups)} policy groups")
+                    else:
+                        notes.append("No active policies")
+                        
+                except Exception as e:
+                    notes.append(f"Source Check Error: {str(e)}")
+            
+            # 2. Destination Check
+            if dst_sys:
+                try:
+                    # Check if client exists by name (Standard Search from Root)
+                    found_client = dst_sys.get_client_by_name(c['client_name'], domain='/')
+                    
+                    # If not found, explicitly search the /REPLICATE domain tree.
+                    # Standard recursion often treats /REPLICATE as a separate tree or requires explicit entry.
+                    if not found_client:
+                        try:
+                            found_client = dst_sys.get_client_by_name(c['client_name'], domain='/REPLICATE')
+                            if found_client:
+                                notes.append("Found in /REPLICATE")
+                        except Exception:
+                            # /REPLICATE domain might not exist if no replication has ever happened
+                            pass
+                    
+                    if found_client:
+                         d_backups = dst_sys.get_client_backups(found_client['id'])
+                         current_d_count = len(d_backups)
+                         status_update['dest_count'] = current_d_count
+
+                         # Calculate Dest Size
+                         d_bytes = 0
+                         try:
+                             if d_backups and isinstance(d_backups, list):
+                                 for b in d_backups:
+                                     val = b.get('totalBytes') or b.get('totalbytes') or b.get('size') or b.get('bytes') or 0
+                                     try:
+                                        d_bytes += int(val)
+                                     except:
+                                        pass
+                         except Exception as e:
+                             print(f"Error calculating dest size: {e}")
+                             
+                         status_update['dest_bytes'] = d_bytes
+
+                         # Capture the actual domain path on destination
+                         status_update['dest_domain'] = found_client['domain']
+                    else:
+                         status_update['dest_count'] = 0
+                         status_update['dest_bytes'] = 0
+                         notes.append("Not found on Dest")
+                         
+                except Exception as e:
+                     notes.append(f"Dest Check Error: {str(e)}")
+
+            # 3. Determine Status
+            # Use new values if available, else keep old
+            s_count = status_update.get('source_count', c.get('source_backup_count') or 0)
+            d_count = status_update.get('dest_count', c.get('dest_backup_count') or 0)
+            
+            s_bytes = status_update.get('source_bytes', c.get('source_total_bytes') or 0)
+            d_bytes = status_update.get('dest_bytes', c.get('dest_total_bytes') or 0)
+            
+            # If we couldn't check source, assume old value for logic?
+            # Or if check failed, don't update status?
+            # For now, update if we got data.
+            
+            if s_count == 0 and d_count > 0:
+                new_status = 'CLEANED_SOURCE'
+            elif d_count >= s_count and s_count > 0:
+                new_status = 'SYNCED'
+            elif d_count < s_count:
+                new_status = 'REPLICATING'
+            else:
+                new_status = 'PENDING'
+            
+            final_notes = "; ".join(notes)
+            
+            database.update_client_status(
+                c['id'], 
+                source_count=s_count,
+                dest_count=d_count,
+                source_bytes=s_bytes,
+                dest_bytes=d_bytes,
+                status=new_status,
+                notes=final_notes,
+                dest_domain=status_update.get('dest_domain')
+            )
+            
+            results.append({
+                'client': c['client_name'],
+                'status': new_status,
+                's_count': s_count,
+                'd_count': d_count
+            })
+        print("DEBUG: perform_migration_check completed successfully")
+        return results
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"CRITICAL ERROR in perform_migration_check: {e}")
+        return []
+
+@app.route('/api/migration/check', methods=['POST'])
+def check_migration_status():
+    results = perform_migration_check()
+    return jsonify({'message': 'Check Complete', 'results': results})
+
+@app.route('/api/jobs/<group_name>', methods=['GET'])
+def get_job_details(group_name):
+    try:
+        # FORCE Update for this job
+        perform_migration_check(limit_group_name=group_name)
+        
+        clients = database.get_clients_for_job(group_name)
+        
+        # Also fetch Activity Details (Start/End times)
+        activity_info = {}
+        
+        all_jobs = database.get_all_migrations()
+        job_record = next((j for j in all_jobs if j['group_name'] == group_name), None)
+        
+        if job_record:
+            host = job_record['source_system']
+            # ...
+
+            for s in settings.get_sources():
+                if s['host'] == host:
+                    try:
+                        pw = settings._decrypt(s['password'])
+                        cl = AvamarClient(host, s['user'], pw)
+                        # Fixed usage: _authenticate now returns True or raises
+                        if cl._authenticate():
+                            client = cl
+                            break
+                    except Exception as e:
+                        print(f"Details auth error: {e}")
+            
+            if client:
+                 activity_info = client.get_replication_group_details_full(group_name)
+
+        return jsonify({'clients': clients, 'activity': activity_info})
+    except Exception as e:
+        print(f"Error in get_job_details: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/jobs/<group_name>/run', methods=['POST'])
+def run_job(group_name):
+    # Find job to get source host
+    all_jobs = database.get_all_migrations()
+    job_record = next((j for j in all_jobs if j['group_name'] == group_name), None)
+    
+    if not job_record:
+        return jsonify({'error': 'Job not found'}), 404
+        
+    host = job_record['source_system']
+    
+    # Authenticate
+    client = None
+    for s in settings.get_sources():
+        if s['host'] == host:
+            try:
+                pw = settings._decrypt(s['password'])
+                cl = AvamarClient(host, s['user'], pw)
+                cl._authenticate()
+                client = cl
+                break
+            except: pass
+            
+    if not client:
+        return jsonify({'error': 'Could not connect to source system'}), 500
+
+    # Find Group ID
+    groups = client.get_replication_groups()
+    target = next((g for g in groups if g.get('name') == group_name), None)
+    
+    if not target:
+        return jsonify({'error': 'Replication Group not found on Avamar'}), 404
+        
+    # Run it
+    try:
+        resp = client.run_replication_group(target['id'])
+        if resp.status_code == 200 or resp.status_code == 204:
+             return jsonify({'status': 'initiated'})
+        return jsonify({'error': f"Avamar API Error: {resp.status_code} {resp.text}"}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+if __name__ == '__main__':
+    database.init_db()
+    app.run(debug=True, port=5000)
