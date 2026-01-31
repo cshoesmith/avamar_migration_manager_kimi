@@ -8,30 +8,59 @@
         .header { background: #0076CE; color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; }
         .header h1 { margin: 0; font-size: 20px; font-weight: 600; }
         .container { max-width: 1200px; margin: 20px auto; background: white; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 4px; }
-        .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
-        .toolbar-left { display: flex; align-items: center; gap: 15px; }
-        .toolbar-right { display: flex; align-items: center; gap: 10px; }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th, td { border: 1px solid #eee; padding: 8px 12px; text-align: left; }
-        th { background: #fafafa; color: #555; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
-        tr:hover { background: #f9f9f9; }
-        tr.archived { background: #f0f0f0; color: #888; }
-        tr.archived .event-type { color: #888; }
-        .timestamp { color: #666; font-family: monospace; }
-        .event-type { font-weight: bold; color: #0076CE; }
-        .archived-badge { font-size: 10px; color: #888; background: #e0e0e0; padding: 2px 6px; border-radius: 3px; margin-left: 8px; }
-        button { 
-            background-color: #dc3545; 
-            color: white; 
-            border: none; 
-            padding: 8px 16px; 
-            font-size: 13px; 
-            cursor: pointer; 
-            border-radius: 3px;
-            transition: background-color 0.2s;
+        
+        /* Toolbar Styles */
+        .toolbar { 
+            display: flex; 
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 15px; 
+            padding-bottom: 15px; 
+            border-bottom: 1px solid #eee; 
         }
-        button:hover { background-color: #c82333; }
-        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        .toolbar-row { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            width: 100%;
+        }
+        .toolbar-left { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+        .toolbar-right { display: flex; align-items: center; gap: 10px; }
+        
+        /* Search Box */
+        .search-box {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .search-box input {
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            font-size: 13px;
+            width: 250px;
+        }
+        .search-box button {
+            background-color: #0076CE;
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        /* Page Size Selector */
+        .page-size-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+        .page-size-selector select {
+            padding: 5px 8px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            font-size: 13px;
+        }
+        
+        /* Checkbox */
         .checkbox-wrapper {
             display: flex;
             align-items: center;
@@ -45,8 +74,92 @@
         .info-text {
             font-size: 12px;
             color: #666;
-            margin-top: 5px;
         }
+        
+        /* Table Styles */
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { border: 1px solid #eee; padding: 8px 12px; text-align: left; }
+        th { 
+            background: #fafafa; 
+            color: #555; 
+            text-transform: uppercase; 
+            font-size: 11px; 
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            padding-right: 20px;
+        }
+        th:hover { background: #f0f0f0; }
+        th .sort-arrow {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 10px;
+            color: #0076CE;
+        }
+        tr:hover { background: #f9f9f9; }
+        tr.archived { background: #f0f0f0; color: #888; }
+        tr.archived .event-type { color: #888; }
+        .timestamp { color: #666; font-family: monospace; }
+        .event-type { font-weight: bold; color: #0076CE; }
+        .archived-badge { font-size: 10px; color: #888; background: #e0e0e0; padding: 2px 6px; border-radius: 3px; margin-left: 8px; }
+        
+        /* Button Styles */
+        button { 
+            background-color: #dc3545; 
+            color: white; 
+            border: none; 
+            padding: 8px 16px; 
+            font-size: 13px; 
+            cursor: pointer; 
+            border-radius: 3px;
+            transition: background-color 0.2s;
+        }
+        button:hover { background-color: #c82333; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+        .page-info {
+            font-size: 13px;
+            color: #666;
+        }
+        .page-controls {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .page-btn {
+            background-color: #fff;
+            color: #333;
+            border: 1px solid #ccc;
+            padding: 6px 12px;
+            font-size: 13px;
+            min-width: 35px;
+        }
+        .page-btn:hover {
+            background-color: #f0f0f0;
+        }
+        .page-btn.active {
+            background-color: #0076CE;
+            color: white;
+            border-color: #0076CE;
+        }
+        .page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Status Message */
         .status-msg {
             padding: 10px;
             margin-bottom: 15px;
@@ -56,7 +169,7 @@
         .status-msg.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .status-msg.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
         
-        /* Modal Styles - Matching main app */
+        /* Modal Styles */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -127,29 +240,81 @@
         </div>
     </div>
     <div class="container">
+        <!-- Toolbar -->
         <div class="toolbar">
-            <div class="toolbar-left">
-                <label class="checkbox-wrapper" title="Show archived/cleared audit logs">
-                    <input type="checkbox" id="showHistory" {% if show_history %}checked{% endif %} onchange="toggleHistory()">
-                    <span>Show history (archived logs)</span>
-                </label>
-                <span class="info-text">Archived logs are kept but hidden from normal view</span>
+            <div class="toolbar-row">
+                <!-- Left side: Search and Page Size -->
+                <div class="toolbar-left">
+                    <div class="search-box">
+                        <input type="text" id="searchInput" placeholder="Search logs..." value="{{ search }}" onkeypress="if(event.key==='Enter')doSearch()">
+                        <button onclick="doSearch()">Search</button>
+                        {% if search %}
+                        <button onclick="clearSearch()" style="background-color: #666;">Clear</button>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="page-size-selector">
+                        <label for="pageSize">Show:</label>
+                        <select id="pageSize" onchange="changePageSize()">
+                            <option value="10" {% if page_size == 10 %}selected{% endif %}>10 per page</option>
+                            <option value="100" {% if page_size == 100 %}selected{% endif %}>100 per page</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Right side: Clear button -->
+                <div class="toolbar-right">
+                    <button id="clearBtn" onclick="showClearConfirm()" title="Archive all visible logs">Clear Audit Logs</button>
+                </div>
             </div>
-            <div class="toolbar-right">
-                <button id="clearBtn" onclick="showClearConfirm()" title="Archive all visible logs">Clear Audit Logs</button>
+            
+            <div class="toolbar-row" style="margin-top: 10px;">
+                <div class="toolbar-left">
+                    <label class="checkbox-wrapper" title="Show archived/cleared audit logs">
+                        <input type="checkbox" id="showHistory" {% if show_history %}checked{% endif %} onchange="toggleHistory()">
+                        <span>Show history (archived logs)</span>
+                    </label>
+                    <span class="info-text">Archived logs are kept but hidden from normal view</span>
+                </div>
             </div>
         </div>
         
         <div id="statusMsg" class="status-msg"></div>
         
+        <!-- Audit Logs Table -->
         <table>
             <thead>
                 <tr>
-                    <th width="15%">Timestamp</th>
-                    <th width="10%">User</th>
-                    <th width="10%">Incident Ref</th>
-                    <th width="20%">Event Type</th>
-                    <th>Description</th>
+                    <th onclick="sortBy('timestamp')" style="width: 18%;">
+                        Timestamp
+                        {% if sort_column == 'timestamp' %}
+                        <span class="sort-arrow">{% if sort_order == 'ASC' %}▲{% else %}▼{% endif %}</span>
+                        {% endif %}
+                    </th>
+                    <th onclick="sortBy('user')" style="width: 12%;">
+                        User
+                        {% if sort_column == 'user' %}
+                        <span class="sort-arrow">{% if sort_order == 'ASC' %}▲{% else %}▼{% endif %}</span>
+                        {% endif %}
+                    </th>
+                    <th onclick="sortBy('incident_ref')" style="width: 12%;">
+                        Incident Ref
+                        {% if sort_column == 'incident_ref' %}
+                        <span class="sort-arrow">{% if sort_order == 'ASC' %}▲{% else %}▼{% endif %}</span>
+                        {% endif %}
+                    </th>
+                    <th onclick="sortBy('event_type')" style="width: 18%;">
+                        Event Type
+                        {% if sort_column == 'event_type' %}
+                        <span class="sort-arrow">{% if sort_order == 'ASC' %}▲{% else %}▼{% endif %}</span>
+                        {% endif %}
+                    </th>
+                    <th onclick="sortBy('description')">
+                        Description
+                        {% if sort_column == 'description' %}
+                        <span class="sort-arrow">{% if sort_order == 'ASC' %}▲{% else %}▼{% endif %}</span>
+                        {% endif %}
+                    </th>
                 </tr>
             </thead>
             <tbody>
@@ -168,8 +333,10 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" style="text-align:center; padding: 20px;">
-                        {% if show_history %}
+                    <td colspan="5" style="text-align:center; padding: 30px;">
+                        {% if search %}
+                        No audit logs found matching "{{ search }}".
+                        {% elif show_history %}
                         No audit logs found (including archived).
                         {% else %}
                         No active audit logs. <a href="?show_history=true">Show history</a> to view archived logs.
@@ -179,6 +346,47 @@
                 {% endfor %}
             </tbody>
         </table>
+        
+        <!-- Pagination -->
+        {% if total_pages > 0 %}
+        <div class="pagination">
+            <div class="page-info">
+                {% set start_entry = (page - 1) * page_size + 1 %}
+                {% set end_entry = page * page_size %}
+                {% if end_entry > total_count %}{% set end_entry = total_count %}{% endif %}
+                Showing {{ start_entry }} - {{ end_entry }} 
+                of {{ total_count }} entries
+                {% if search %}(filtered from search){% endif %}
+            </div>
+            <div class="page-controls">
+                <button class="page-btn" onclick="goToPage(1)" {% if page == 1 %}disabled{% endif %}>&laquo;</button>
+                <button class="page-btn" onclick="goToPage({{ page - 1 }})" {% if page == 1 %}disabled{% endif %}>&lsaquo;</button>
+                
+                {% set start_page = [page - 2, 1] | max %}
+                {% set end_page = [start_page + 4, total_pages] | min %}
+                {% if end_page - start_page < 4 %}
+                    {% set start_page = [end_page - 4, 1] | max %}
+                {% endif %}
+                
+                {% if start_page > 1 %}
+                <button class="page-btn" onclick="goToPage(1)">1</button>
+                {% if start_page > 2 %}<span style="padding: 0 5px;">...</span>{% endif %}
+                {% endif %}
+                
+                {% for p in range(start_page, end_page + 1) %}
+                <button class="page-btn {% if p == page %}active{% endif %}" onclick="goToPage({{ p }})">{{ p }}</button>
+                {% endfor %}
+                
+                {% if end_page < total_pages %}
+                {% if end_page < total_pages - 1 %}<span style="padding: 0 5px;">...</span>{% endif %}
+                <button class="page-btn" onclick="goToPage({{ total_pages }})">{{ total_pages }}</button>
+                {% endif %}
+                
+                <button class="page-btn" onclick="goToPage({{ page + 1 }})" {% if page == total_pages %}disabled{% endif %}>&rsaquo;</button>
+                <button class="page-btn" onclick="goToPage({{ total_pages }})" {% if page == total_pages %}disabled{% endif %}>&raquo;</button>
+            </div>
+        </div>
+        {% endif %}
     </div>
     
     <!-- Custom Confirmation Modal -->
@@ -200,12 +408,75 @@
     
     <script>
         let confirmCallback = null;
+        const currentParams = new URLSearchParams(window.location.search);
         
-        function toggleHistory() {
-            const showHistory = document.getElementById('showHistory').checked;
-            window.location.href = showHistory ? '?show_history=true' : '?show_history=false';
+        // Search functionality
+        function doSearch() {
+            const searchTerm = document.getElementById('searchInput').value.trim();
+            updateUrlParam('search', searchTerm);
+            updateUrlParam('page', '1'); // Reset to first page on new search
+            reloadPage();
         }
         
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            updateUrlParam('search', '');
+            updateUrlParam('page', '1');
+            reloadPage();
+        }
+        
+        // Page size change
+        function changePageSize() {
+            const pageSize = document.getElementById('pageSize').value;
+            updateUrlParam('page_size', pageSize);
+            updateUrlParam('page', '1'); // Reset to first page
+            reloadPage();
+        }
+        
+        // Toggle history
+        function toggleHistory() {
+            const showHistory = document.getElementById('showHistory').checked;
+            updateUrlParam('show_history', showHistory ? 'true' : 'false');
+            updateUrlParam('page', '1');
+            reloadPage();
+        }
+        
+        // Sorting
+        function sortBy(column) {
+            const currentSort = currentParams.get('sort') || 'timestamp';
+            const currentOrder = currentParams.get('order') || 'DESC';
+            
+            // Toggle order if clicking same column
+            let newOrder = 'DESC';
+            if (currentSort === column && currentOrder === 'DESC') {
+                newOrder = 'ASC';
+            }
+            
+            updateUrlParam('sort', column);
+            updateUrlParam('order', newOrder);
+            reloadPage();
+        }
+        
+        // Pagination
+        function goToPage(pageNum) {
+            updateUrlParam('page', pageNum);
+            reloadPage();
+        }
+        
+        // URL parameter helpers
+        function updateUrlParam(key, value) {
+            if (value === '' || value === null || value === undefined) {
+                currentParams.delete(key);
+            } else {
+                currentParams.set(key, value);
+            }
+        }
+        
+        function reloadPage() {
+            window.location.href = window.location.pathname + '?' + currentParams.toString();
+        }
+        
+        // Confirmation modal
         function showClearConfirm() {
             const modal = document.getElementById('confirmModal');
             const title = document.getElementById('confirmTitle');
@@ -230,6 +501,7 @@
             confirmCallback = null;
         }
         
+        // Clear logs action
         async function clearLogs() {
             const btn = document.getElementById('clearBtn');
             const statusDiv = document.getElementById('statusMsg');
@@ -247,7 +519,6 @@
                 
                 showStatus(`Successfully archived ${data.archived_count} audit log entries.`, 'success');
                 
-                // Reload page after a short delay to show the cleared state
                 setTimeout(() => {
                     window.location.reload();
                 }, 1500);

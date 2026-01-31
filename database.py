@@ -276,16 +276,63 @@ def log_audit_event(user, event_type, description, incident_ref=None):
         conn.close()
 
 
-def get_audit_logs(limit=100, include_archived=False):
+def get_audit_logs(limit=100, offset=0, include_archived=False, sort_column='timestamp', sort_order='DESC', search=None):
+    """
+    Get audit logs with pagination, sorting and search.
+    
+    Args:
+        limit: Number of records per page
+        offset: Number of records to skip
+        include_archived: Whether to include archived logs
+        sort_column: Column to sort by (timestamp, user, event_type, description, incident_ref)
+        sort_order: ASC or DESC
+        search: Search term to filter logs (searches user, event_type, description, incident_ref)
+    """
     conn = get_db_connection()
     cur = conn.cursor()
-    if include_archived:
-        cur.execute("SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT ?", (limit,))
+    
+    # Validate sort_column to prevent SQL injection
+    valid_columns = ['timestamp', 'user', 'event_type', 'description', 'incident_ref']
+    if sort_column not in valid_columns:
+        sort_column = 'timestamp'
+    
+    # Validate sort_order
+    sort_order = 'DESC' if sort_order.upper() == 'DESC' else 'ASC'
+    
+    # Build base query
+    base_where = "archived = 0" if not include_archived else "1=1"
+    
+    # Add search filter
+    if search:
+        search_term = f"%{search}%"
+        search_filter = """AND (user LIKE ? OR event_type LIKE ? OR description LIKE ? OR incident_ref LIKE ?)"""
+        params = [search_term, search_term, search_term, search_term]
     else:
-        cur.execute("SELECT * FROM audit_logs WHERE archived = 0 ORDER BY timestamp DESC LIMIT ?", (limit,))
+        search_filter = ""
+        params = []
+    
+    # Get total count for pagination
+    count_query = f"SELECT COUNT(*) FROM audit_logs WHERE {base_where} {search_filter}"
+    cur.execute(count_query, params)
+    total_count = cur.fetchone()[0]
+    
+    # Get paginated results
+    query = f"""
+        SELECT * FROM audit_logs 
+        WHERE {base_where} {search_filter}
+        ORDER BY {sort_column} {sort_order}
+        LIMIT ? OFFSET ?
+    """
+    cur.execute(query, params + [limit, offset])
     logs = [dict(row) for row in cur.fetchall()]
     conn.close()
-    return logs
+    
+    return {
+        'logs': logs,
+        'total_count': total_count,
+        'page_size': limit,
+        'offset': offset
+    }
 
 
 def archive_audit_logs():
