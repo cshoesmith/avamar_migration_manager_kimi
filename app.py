@@ -1374,6 +1374,42 @@ def delete_user(user_id):
     else:
         return jsonify({'error': 'Failed to delete user'}), 500
 
+
+@app.route('/api/users/<int:user_id>/password', methods=['POST'])
+@admin_required
+def change_user_password(user_id):
+    """Change a user's password."""
+    data = request.json
+    new_password = data.get('password', '')
+    
+    if not new_password:
+        return jsonify({'error': 'New password is required'}), 400
+    
+    # Get user info for audit log
+    conn = database.get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT username FROM users WHERE id = ?", (user_id,))
+    row = cur.fetchone()
+    conn.close()
+    
+    if not row:
+        return jsonify({'error': 'User not found'}), 404
+    
+    username = row['username']
+    
+    # Hash new password and update
+    new_password_hash = generate_password_hash(new_password)
+    
+    if database.update_user_password(user_id, new_password_hash):
+        database.log_audit_event(
+            current_user.username,
+            'user_password_changed',
+            f"Changed password for user '{username}'"
+        )
+        return jsonify({'status': 'ok'})
+    else:
+        return jsonify({'error': 'Failed to update password'}), 500
+
 if __name__ == '__main__':
     database.init_db()
     app.run(debug=True, port=5000)

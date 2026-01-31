@@ -1075,10 +1075,16 @@
                                 <strong>${u.username}</strong>
                                 <span class="user-role-badge ${roleClass}">${u.role}</span>
                             </div>
-                            <button onclick="deleteUser(${u.id}, '${u.username}')" 
-                                    style="background-color: #dc3545; padding: 4px 10px; font-size: 11px;">
-                                Delete
-                            </button>
+                            <div style="display: flex; gap: 5px;">
+                                <button onclick="showChangePassword(${u.id}, '${u.username}')" 
+                                        style="background-color: #0076CE; padding: 4px 10px; font-size: 11px;">
+                                    Change Password
+                                </button>
+                                <button onclick="deleteUser(${u.id}, '${u.username}')" 
+                                        style="background-color: #dc3545; padding: 4px 10px; font-size: 11px;">
+                                    Delete
+                                </button>
+                            </div>
                         </div>
                     `;
                 });
@@ -1087,6 +1093,41 @@
                 console.error('Failed to load users:', e);
                 document.getElementById('userList').innerHTML = 
                     '<p style="color: #dc3545;">Failed to load users.</p>';
+            }
+        }
+
+        function showChangePassword(userId, username) {
+            const newPassword = prompt(`Enter new password for user "${username}":`);
+            if (newPassword === null) return; // Cancelled
+            
+            if (!newPassword) {
+                alert('Password cannot be empty');
+                return;
+            }
+            
+            changeUserPassword(userId, username, newPassword);
+        }
+
+        async function changeUserPassword(userId, username, newPassword) {
+            try {
+                const res = await fetch(`/api/users/${userId}/password`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({password: newPassword})
+                });
+                
+                const data = await res.json();
+                
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+                
+                alert(`Password changed successfully for user "${username}"`);
+                loadUsers();
+                
+            } catch (e) {
+                alert('Failed to change password: ' + e);
             }
         }
 

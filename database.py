@@ -295,6 +295,24 @@ def delete_user(user_id):
         conn.close()
 
 
+def update_user_password(user_id, new_password_hash):
+    """Update a user's password."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "UPDATE users SET password_hash = ? WHERE id = ?",
+            (new_password_hash, user_id)
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception as e:
+        print(f"Error updating user password: {e}")
+        return False
+    finally:
+        conn.close()
+
+
 def get_user_by_id(user_id):
     conn = get_db_connection()
     cur = conn.cursor()
