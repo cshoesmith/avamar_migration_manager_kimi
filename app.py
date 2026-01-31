@@ -1240,7 +1240,7 @@ def audit_log():
     # Get pagination parameters
     page = request.args.get('page', 1, type=int)
     page_size = request.args.get('page_size', 10, type=int)
-    if page_size not in [10, 100]:
+    if page_size not in [10, 50, 100]:
         page_size = 10
     
     # Get sorting parameters
