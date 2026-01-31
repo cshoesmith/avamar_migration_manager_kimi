@@ -1636,11 +1636,35 @@
                     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
                 };
 
+                // Helper for Date formatting - Simple DD/MM/YYYY HH:MM AM/PM format
+                const formatDate = (dateStr) => {
+                    if (!dateStr || dateStr === 'Unknown Date') return 'Unknown Date';
+                    try {
+                        const d = new Date(dateStr);
+                        if (isNaN(d.getTime())) return dateStr;
+                        
+                        const day = d.getDate().toString().padStart(2, '0');
+                        const month = (d.getMonth() + 1).toString().padStart(2, '0');
+                        const year = d.getFullYear();
+                        
+                        let hours = d.getHours();
+                        const minutes = d.getMinutes().toString().padStart(2, '0');
+                        const ampm = hours >= 12 ? 'pm' : 'am';
+                        hours = hours % 12;
+                        hours = hours ? hours : 12; // 0 should be 12
+                        
+                        return `${day}/${month}/${year} ${hours}:${minutes} ${ampm}`;
+                    } catch (e) {
+                        return dateStr;
+                    }
+                };
+
                 data.aligned_backups.forEach(row => {
                     const tr = document.createElement('tr');
                     
                     // Priority: Source, then Dest
-                    const date = (row.source ? row.source.date : row.dest.date) || 'Unknown Date';
+                    const rawDate = (row.source ? row.source.date : row.dest.date) || 'Unknown Date';
+                    const date = formatDate(rawDate);
                     const plugin = (row.source ? row.source.pluginName : row.dest.pluginName) || '-';
                     const sSize = row.source ? formatBytes(row.source.size) : '-';
                     
@@ -1662,11 +1686,11 @@
                     let expiryHtml = '-';
                     if (row.source) {
                         const sExp = row.source.expirationTime; 
-                        const sDate = sExp ? new Date(sExp).toLocaleDateString() + ' ' + new Date(sExp).toLocaleTimeString() : 'Never';
+                        const sDate = sExp ? formatDate(sExp) : 'Never';
                         
                         if (row.dest) {
                             const dExp = row.dest.expirationTime;
-                            const dDate = dExp ? new Date(dExp).toLocaleDateString() + ' ' + new Date(dExp).toLocaleTimeString() : 'Never';
+                            const dDate = dExp ? formatDate(dExp) : 'Never';
                             
                             // Check for difference (allow 1000ms slack just in case, though usually exact)
                             // If one is null and other is not, it is diff
@@ -1691,7 +1715,7 @@
                     } else if (row.dest) {
                         // Only dest (Extra on dest)
                         const dExp = row.dest.expirationTime;
-                        expiryHtml = dExp ? new Date(dExp).toLocaleDateString() + ' ' + new Date(dExp).toLocaleTimeString() : 'Never';
+                        expiryHtml = dExp ? formatDate(dExp) : 'Never';
                     }
 
                     tr.innerHTML = `
