@@ -83,9 +83,17 @@ def init_db():
             user TEXT NOT NULL,
             event_type TEXT NOT NULL,
             description TEXT,
-            incident_ref TEXT
+            incident_ref TEXT,
+            archived INTEGER DEFAULT 0
         )
     ''')
+    
+    # Migration: Add archived column if it doesn't exist (for existing databases)
+    try:
+        c.execute("SELECT archived FROM audit_logs LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE audit_logs ADD COLUMN archived INTEGER DEFAULT 0")
+        print("Migration: Added 'archived' column to audit_logs table")
     
     conn.commit()
     conn.close()
@@ -268,13 +276,32 @@ def log_audit_event(user, event_type, description, incident_ref=None):
         conn.close()
 
 
-def get_audit_logs(limit=100):
+def get_audit_logs(limit=100, include_archived=False):
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT ?", (limit,))
+    if include_archived:
+        cur.execute("SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT ?", (limit,))
+    else:
+        cur.execute("SELECT * FROM audit_logs WHERE archived = 0 ORDER BY timestamp DESC LIMIT ?", (limit,))
     logs = [dict(row) for row in cur.fetchall()]
     conn.close()
     return logs
+
+
+def archive_audit_logs():
+    """Mark all non-archived audit logs as archived (soft delete)."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE audit_logs SET archived = 1 WHERE archived = 0")
+        archived_count = cur.rowcount
+        conn.commit()
+        return archived_count
+    except Exception as e:
+        print(f"Error archiving audit logs: {e}")
+        return 0
+    finally:
+        conn.close()
 
 
 def delete_migration_job(job_id):

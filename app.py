@@ -1230,8 +1230,26 @@ def print_report():
 @app.route('/audit')
 @admin_required
 def audit_log():
-    logs = database.get_audit_logs(limit=200)
-    return render_template('audit.html', logs=logs)
+    show_history = request.args.get('show_history', 'false').lower() == 'true'
+    logs = database.get_audit_logs(limit=500, include_archived=show_history)
+    return render_template('audit.html', logs=logs, show_history=show_history)
+
+
+@app.route('/api/audit/clear', methods=['POST'])
+@admin_required
+def clear_audit_logs():
+    """Archive (soft delete) all visible audit logs."""
+    try:
+        archived_count = database.archive_audit_logs()
+        # Log the archive action itself (this will be the only visible log after clearing)
+        database.log_audit_event(
+            current_user.username,
+            'audit_logs_cleared',
+            f"Archived {archived_count} audit log entries. Use 'Show history' to view archived logs."
+        )
+        return jsonify({'status': 'ok', 'archived_count': archived_count})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     database.init_db()

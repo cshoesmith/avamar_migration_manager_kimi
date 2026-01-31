@@ -8,12 +8,53 @@
         .header { background: #0076CE; color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; }
         .header h1 { margin: 0; font-size: 20px; font-weight: 600; }
         .container { max-width: 1200px; margin: 20px auto; background: white; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 4px; }
+        .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+        .toolbar-left { display: flex; align-items: center; gap: 15px; }
+        .toolbar-right { display: flex; align-items: center; gap: 10px; }
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         th, td { border: 1px solid #eee; padding: 8px 12px; text-align: left; }
         th { background: #fafafa; color: #555; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
         tr:hover { background: #f9f9f9; }
+        tr.archived { background: #f0f0f0; color: #888; }
+        tr.archived .event-type { color: #888; }
         .timestamp { color: #666; font-family: monospace; }
         .event-type { font-weight: bold; color: #0076CE; }
+        .archived-badge { font-size: 10px; color: #888; background: #e0e0e0; padding: 2px 6px; border-radius: 3px; margin-left: 8px; }
+        button { 
+            background-color: #dc3545; 
+            color: white; 
+            border: none; 
+            padding: 8px 16px; 
+            font-size: 13px; 
+            cursor: pointer; 
+            border-radius: 3px;
+            transition: background-color 0.2s;
+        }
+        button:hover { background-color: #c82333; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .checkbox-wrapper input[type="checkbox"] {
+            cursor: pointer;
+        }
+        .info-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .status-msg {
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 3px;
+            display: none;
+        }
+        .status-msg.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status-msg.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
     </style>
 </head>
 <body>
@@ -24,6 +65,21 @@
         </div>
     </div>
     <div class="container">
+        <div class="toolbar">
+            <div class="toolbar-left">
+                <label class="checkbox-wrapper" title="Show archived/cleared audit logs">
+                    <input type="checkbox" id="showHistory" {% if show_history %}checked{% endif %} onchange="toggleHistory()">
+                    <span>Show history (archived logs)</span>
+                </label>
+                <span class="info-text">Archived logs are kept but hidden from normal view</span>
+            </div>
+            <div class="toolbar-right">
+                <button id="clearBtn" onclick="clearLogs()" title="Archive all visible logs">Clear Audit Logs</button>
+            </div>
+        </div>
+        
+        <div id="statusMsg" class="status-msg"></div>
+        
         <table>
             <thead>
                 <tr>
@@ -36,8 +92,13 @@
             </thead>
             <tbody>
                 {% for log in logs %}
-                <tr>
-                    <td class="timestamp">{{ log.timestamp }}</td>
+                <tr class="{% if log.archived %}archived{% endif %}">
+                    <td class="timestamp">
+                        {{ log.timestamp }}
+                        {% if log.archived %}
+                        <span class="archived-badge">ARCHIVED</span>
+                        {% endif %}
+                    </td>
                     <td>{{ log.user }}</td>
                     <td>{{ log.incident_ref or '-' }}</td>
                     <td class="event-type">{{ log.event_type }}</td>
@@ -45,11 +106,64 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" style="text-align:center; padding: 20px;">No audit logs found.</td>
+                    <td colspan="5" style="text-align:center; padding: 20px;">
+                        {% if show_history %}
+                        No audit logs found (including archived).
+                        {% else %}
+                        No active audit logs. <a href="?show_history=true">Show history</a> to view archived logs.
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+    
+    <script>
+        function toggleHistory() {
+            const showHistory = document.getElementById('showHistory').checked;
+            window.location.href = showHistory ? '?show_history=true' : '?show_history=false';
+        }
+        
+        async function clearLogs() {
+            if (!confirm('This will archive all visible audit logs.\n\nArchived logs can still be viewed by checking "Show history".\n\nAre you sure you want to continue?')) {
+                return;
+            }
+            
+            const btn = document.getElementById('clearBtn');
+            const statusDiv = document.getElementById('statusMsg');
+            
+            btn.disabled = true;
+            btn.textContent = 'Clearing...';
+            
+            try {
+                const res = await fetch('/api/audit/clear', { method: 'POST' });
+                const data = await res.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                showStatus(`Successfully archived ${data.archived_count} audit log entries.`, 'success');
+                
+                // Reload page after a short delay to show the cleared state
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+                
+            } catch (e) {
+                showStatus('Error: ' + e.message, 'error');
+                btn.disabled = false;
+                btn.textContent = 'Clear Audit Logs';
+            }
+        }
+        
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('statusMsg');
+            statusDiv.textContent = message;
+            statusDiv.className = 'status-msg ' + type;
+            statusDiv.style.display = 'block';
+        }
+    </script>
 </body>
 </html>
