@@ -141,7 +141,7 @@
         .page-controls {
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 15px;
         }
         .page-btn {
             background-color: #fff;
@@ -348,7 +348,13 @@
         <!-- Pagination -->
         {% if total_pages > 0 %}
         <div class="pagination">
-            <div class="page-info" style="display: flex; align-items: center; gap: 20px;">
+            <div class="page-info">
+                {% set start_entry = (page - 1) * page_size + 1 %}
+                {% set end_entry = page * page_size %}
+                {% if end_entry > total_count %}{% set end_entry = total_count %}{% endif %}
+                {{ start_entry }}-{{ end_entry }} of {{ total_count }}
+            </div>
+            <div class="page-controls" style="display: flex; align-items: center; gap: 15px;">
                 <div class="page-size-selector">
                     <label for="pageSize">Rows per page:</label>
                     <select id="pageSize" onchange="changePageSize()">
@@ -356,14 +362,6 @@
                         <option value="100" {% if page_size == 100 %}selected{% endif %}>100</option>
                     </select>
                 </div>
-                <span>
-                    {% set start_entry = (page - 1) * page_size + 1 %}
-                    {% set end_entry = page * page_size %}
-                    {% if end_entry > total_count %}{% set end_entry = total_count %}{% endif %}
-                    {{ start_entry }}-{{ end_entry }} of {{ total_count }}
-                </span>
-            </div>
-            <div class="page-controls">
                 <button class="page-btn" onclick="goToPage(1)" {% if page == 1 %}disabled{% endif %}>&laquo;</button>
                 <button class="page-btn" onclick="goToPage({{ page - 1 }})" {% if page == 1 %}disabled{% endif %}>&lsaquo;</button>
                 
