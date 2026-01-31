@@ -1237,6 +1237,14 @@ def print_report():
 @app.route('/audit')
 @admin_required
 def audit_log():
+    """Redirect to main page - Audit Logs is now a modal."""
+    return redirect(url_for('index'))
+
+
+@app.route('/api/audit/logs', methods=['GET'])
+@admin_required
+def api_audit_logs():
+    """API endpoint for fetching audit logs with pagination, sorting and search."""
     # Get pagination parameters
     page = request.args.get('page', 1, type=int)
     page_size = request.args.get('page_size', 10, type=int)
@@ -1269,16 +1277,13 @@ def audit_log():
     # Calculate pagination info
     total_pages = (result['total_count'] + page_size - 1) // page_size
     
-    return render_template('audit.html', 
-                          logs=result['logs'],
-                          show_history=show_history,
-                          page=page,
-                          page_size=page_size,
-                          total_count=result['total_count'],
-                          total_pages=total_pages,
-                          sort_column=sort_column,
-                          sort_order=sort_order,
-                          search=search or '')
+    return jsonify({
+        'logs': result['logs'],
+        'total_count': result['total_count'],
+        'total_pages': total_pages,
+        'page': page,
+        'page_size': page_size
+    })
 
 
 @app.route('/api/audit/clear', methods=['POST'])

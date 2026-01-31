@@ -385,7 +385,7 @@
             <span style="color: #ccc; margin-right: 15px; font-size: 13px;">User: {{ current_user.username }} ({{ current_user.role }})</span>
             {% if current_user.role == 'admin' %}
             <button onclick="openSettings()" style="background-color: transparent; border: 1px solid #555;">Settings</button>
-            <a href="/audit" style="color: #fff; text-decoration: none; border: 1px solid #555; padding: 5px 10px; font-size: 13px; margin-left: 5px;">Audit Logs</a>
+            <button onclick="openAuditModal()" style="background-color: transparent; border: 1px solid #555; margin-left: 5px;">Audit Logs</button>
             {% endif %}
             <a href="/report" target="_blank" style="color: #fff; text-decoration: none; border: 1px solid #555; padding: 5px 10px; font-size: 13px; margin-left: 5px;">Print Report</a>
             <a href="/logout" style="color: #fff; text-decoration: none; border: 1px solid #555; padding: 5px 10px; font-size: 13px; margin-left: 5px;">Logout</a>
@@ -608,6 +608,92 @@
             <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
                 <button id="msgCancelBtn" onclick="closeMessageModal(false)" style="background-color: #666; display: none;">Cancel</button>
                 <button id="msgOkBtn" onclick="closeMessageModal(true)" style="background-color: #0076CE;">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audit Logs Modal -->
+    <div id="auditModal" class="modal-overlay">
+        <div class="modal-content" style="width: 90%; max-width: 1200px; height: 80vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <h2>Audit Logs</h2>
+                <button onclick="closeAuditModal()" style="background-color: transparent; color: #666; font-size: 20px; padding: 0;">&times;</button>
+            </div>
+            
+            <!-- Audit Logs Toolbar -->
+            <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                    <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                        <!-- Search -->
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <input type="text" id="auditSearchInput" placeholder="Search logs..." 
+                                   style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 3px; font-size: 13px; width: 200px;">
+                            <button onclick="loadAuditLogs()" style="padding: 6px 12px; font-size: 12px;">Search</button>
+                            <button onclick="clearAuditSearch()" style="background-color: #666; padding: 6px 12px; font-size: 12px;">Clear</button>
+                        </div>
+                        
+                        <!-- Show History -->
+                        <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
+                            <input type="checkbox" id="auditShowHistory" onchange="loadAuditLogs()">
+                            <span>Show history (archived)</span>
+                        </label>
+                    </div>
+                    
+                    <!-- Clear Button -->
+                    <button onclick="clearAuditLogs()" style="background-color: #dc3545; padding: 6px 12px; font-size: 12px;">Clear Audit Logs</button>
+                </div>
+            </div>
+            
+            <!-- Audit Logs Table -->
+            <div style="flex-grow: 1; overflow-y: auto; margin-bottom: 15px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                    <thead>
+                        <tr>
+                            <th onclick="sortAuditLogs('timestamp')" style="width: 18%; cursor: pointer; background: #fafafa; padding: 10px; text-align: left; border-bottom: 2px solid #ddd;">
+                                Timestamp <span id="auditSortTimestamp"></span>
+                            </th>
+                            <th onclick="sortAuditLogs('user')" style="width: 12%; cursor: pointer; background: #fafafa; padding: 10px; text-align: left; border-bottom: 2px solid #ddd;">
+                                User <span id="auditSortUser"></span>
+                            </th>
+                            <th onclick="sortAuditLogs('incident_ref')" style="width: 12%; cursor: pointer; background: #fafafa; padding: 10px; text-align: left; border-bottom: 2px solid #ddd;">
+                                Incident Ref <span id="auditSortIncident"></span>
+                            </th>
+                            <th onclick="sortAuditLogs('event_type')" style="width: 18%; cursor: pointer; background: #fafafa; padding: 10px; text-align: left; border-bottom: 2px solid #ddd;">
+                                Event Type <span id="auditSortEvent"></span>
+                            </th>
+                            <th onclick="sortAuditLogs('description')" style="cursor: pointer; background: #fafafa; padding: 10px; text-align: left; border-bottom: 2px solid #ddd;">
+                                Description <span id="auditSortDesc"></span>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="auditLogsTableBody">
+                        <!-- Populated via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 15px; border-top: 1px solid #eee;">
+                <div></div>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <!-- Page Size -->
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
+                        <label>Rows per page:</label>
+                        <select id="auditPageSize" onchange="changeAuditPageSize()" style="padding: 5px 10px; border: 1px solid #ccc; border-radius: 4px;">
+                            <option value="10">10</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Page Info -->
+                    <span id="auditPageInfo" style="font-size: 13px; color: #666;">0-0 of 0</span>
+                    
+                    <!-- Page Controls -->
+                    <div id="auditPageControls" style="display: flex; align-items: center; gap: 5px;">
+                        <!-- Populated via JavaScript -->
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -2023,6 +2109,230 @@
         */
 
         setInterval(updateJobs, 30000); // Poll every 30s as requested
+
+        // Audit Logs Modal Functions
+        let auditState = {
+            page: 1,
+            pageSize: 10,
+            sortColumn: 'timestamp',
+            sortOrder: 'DESC',
+            search: '',
+            showHistory: false,
+            totalCount: 0,
+            totalPages: 0
+        };
+
+        function openAuditModal() {
+            document.getElementById('auditModal').style.display = 'flex';
+            loadAuditLogs();
+        }
+
+        function closeAuditModal() {
+            document.getElementById('auditModal').style.display = 'none';
+        }
+
+        async function loadAuditLogs() {
+            auditState.search = document.getElementById('auditSearchInput').value.trim();
+            auditState.showHistory = document.getElementById('auditShowHistory').checked;
+            auditState.pageSize = parseInt(document.getElementById('auditPageSize').value);
+            
+            try {
+                const params = new URLSearchParams({
+                    page: auditState.page,
+                    page_size: auditState.pageSize,
+                    sort: auditState.sortColumn,
+                    order: auditState.sortOrder,
+                    show_history: auditState.showHistory
+                });
+                
+                if (auditState.search) {
+                    params.append('search', auditState.search);
+                }
+                
+                const res = await fetch('/api/audit/logs?' + params.toString());
+                const data = await res.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                auditState.totalCount = data.total_count;
+                auditState.totalPages = data.total_pages;
+                
+                renderAuditLogs(data.logs);
+                renderAuditPagination();
+                updateAuditSortIndicators();
+                
+            } catch (e) {
+                console.error('Failed to load audit logs:', e);
+                document.getElementById('auditLogsTableBody').innerHTML = 
+                    '<tr><td colspan="5" style="text-align:center; padding: 20px; color: #dc3545;">Failed to load audit logs</td></tr>';
+            }
+        }
+
+        function renderAuditLogs(logs) {
+            const tbody = document.getElementById('auditLogsTableBody');
+            
+            if (logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 20px;">No audit logs found</td></tr>';
+                return;
+            }
+            
+            let html = '';
+            logs.forEach(log => {
+                const archivedClass = log.archived ? 'style="background: #f0f0f0; color: #888;"' : '';
+                const archivedBadge = log.archived ? '<span style="font-size: 10px; color: #888; background: #e0e0e0; padding: 2px 6px; border-radius: 3px; margin-left: 8px;">ARCHIVED</span>' : '';
+                
+                html += `
+                    <tr ${archivedClass}>
+                        <td style="padding: 8px 12px; border-bottom: 1px solid #eee; font-family: monospace; color: #666;">
+                            ${formatDate(log.timestamp)}${archivedBadge}
+                        </td>
+                        <td style="padding: 8px 12px; border-bottom: 1px solid #eee;">${log.user}</td>
+                        <td style="padding: 8px 12px; border-bottom: 1px solid #eee;">${log.incident_ref || '-'}</td>
+                        <td style="padding: 8px 12px; border-bottom: 1px solid #eee; font-weight: bold; color: #0076CE;">${log.event_type}</td>
+                        <td style="padding: 8px 12px; border-bottom: 1px solid #eee;">${log.description}</td>
+                    </tr>
+                `;
+            });
+            
+            tbody.innerHTML = html;
+        }
+
+        function renderAuditPagination() {
+            const pageInfo = document.getElementById('auditPageInfo');
+            const controls = document.getElementById('auditPageControls');
+            
+            const start = (auditState.page - 1) * auditState.pageSize + 1;
+            const end = Math.min(auditState.page * auditState.pageSize, auditState.totalCount);
+            pageInfo.textContent = auditState.totalCount > 0 ? `${start}-${end} of ${auditState.totalCount}` : '0-0 of 0';
+            
+            if (auditState.totalPages <= 1) {
+                controls.innerHTML = '';
+                return;
+            }
+            
+            let html = '';
+            
+            // First/Prev
+            html += `<button onclick="goToAuditPage(1)" ${auditState.page === 1 ? 'disabled' : ''} class="page-btn" style="background: #fff; color: #333; border: 1px solid #ccc; padding: 6px 12px; cursor: pointer;">&laquo;</button>`;
+            html += `<button onclick="goToAuditPage(${auditState.page - 1})" ${auditState.page === 1 ? 'disabled' : ''} class="page-btn" style="background: #fff; color: #333; border: 1px solid #ccc; padding: 6px 12px; cursor: pointer;">&lsaquo;</button>`;
+            
+            // Page numbers
+            let startPage = Math.max(1, auditState.page - 2);
+            let endPage = Math.min(startPage + 4, auditState.totalPages);
+            if (endPage - startPage < 4) {
+                startPage = Math.max(1, endPage - 4);
+            }
+            
+            if (startPage > 1) {
+                html += `<button onclick="goToAuditPage(1)" class="page-btn" style="background: #fff; color: #333; border: 1px solid #ccc; padding: 6px 12px; cursor: pointer;">1</button>`;
+                if (startPage > 2) html += `<span>...</span>`;
+            }
+            
+            for (let p = startPage; p <= endPage; p++) {
+                const activeStyle = p === auditState.page ? 'background: #0076CE; color: white; border-color: #0076CE;' : 'background: #fff; color: #333; border: 1px solid #ccc;';
+                html += `<button onclick="goToAuditPage(${p})" class="page-btn ${p === auditState.page ? 'active' : ''}" style="${activeStyle} padding: 6px 12px; cursor: pointer;">${p}</button>`;
+            }
+            
+            if (endPage < auditState.totalPages) {
+                if (endPage < auditState.totalPages - 1) html += `<span>...</span>`;
+                html += `<button onclick="goToAuditPage(${auditState.totalPages})" class="page-btn" style="background: #fff; color: #333; border: 1px solid #ccc; padding: 6px 12px; cursor: pointer;">${auditState.totalPages}</button>`;
+            }
+            
+            // Next/Last
+            html += `<button onclick="goToAuditPage(${auditState.page + 1})" ${auditState.page === auditState.totalPages ? 'disabled' : ''} class="page-btn" style="background: #fff; color: #333; border: 1px solid #ccc; padding: 6px 12px; cursor: pointer;">&rsaquo;</button>`;
+            html += `<button onclick="goToAuditPage(${auditState.totalPages})" ${auditState.page === auditState.totalPages ? 'disabled' : ''} class="page-btn" style="background: #fff; color: #333; border: 1px solid #ccc; padding: 6px 12px; cursor: pointer;">&raquo;</button>`;
+            
+            controls.innerHTML = html;
+        }
+
+        function goToAuditPage(page) {
+            if (page < 1 || page > auditState.totalPages) return;
+            auditState.page = page;
+            loadAuditLogs();
+        }
+
+        function changeAuditPageSize() {
+            auditState.pageSize = parseInt(document.getElementById('auditPageSize').value);
+            auditState.page = 1;
+            loadAuditLogs();
+        }
+
+        function sortAuditLogs(column) {
+            if (auditState.sortColumn === column) {
+                auditState.sortOrder = auditState.sortOrder === 'ASC' ? 'DESC' : 'ASC';
+            } else {
+                auditState.sortColumn = column;
+                auditState.sortOrder = 'DESC';
+            }
+            loadAuditLogs();
+        }
+
+        function updateAuditSortIndicators() {
+            const cols = {
+                'timestamp': 'auditSortTimestamp',
+                'user': 'auditSortUser',
+                'incident_ref': 'auditSortIncident',
+                'event_type': 'auditSortEvent',
+                'description': 'auditSortDesc'
+            };
+            
+            for (const [col, id] of Object.entries(cols)) {
+                const span = document.getElementById(id);
+                if (span) {
+                    if (auditState.sortColumn === col) {
+                        span.textContent = auditState.sortOrder === 'ASC' ? ' ▲' : ' ▼';
+                        span.style.color = '#0076CE';
+                    } else {
+                        span.textContent = '';
+                    }
+                }
+            }
+        }
+
+        function clearAuditSearch() {
+            document.getElementById('auditSearchInput').value = '';
+            auditState.search = '';
+            auditState.page = 1;
+            loadAuditLogs();
+        }
+
+        async function clearAuditLogs() {
+            if (!confirm('This will archive all visible audit logs.\n\nArchived logs can still be viewed by checking "Show history".\n\nAre you sure you want to continue?')) {
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/audit/clear', {method: 'POST'});
+                const data = await res.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                alert(`Successfully archived ${data.archived_count} audit log entries.`);
+                loadAuditLogs();
+                
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+
+        // Close audit modal when clicking outside
+        document.getElementById('auditModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeAuditModal();
+            }
+        });
+
+        // Handle Enter key in audit search
+        document.getElementById('auditSearchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                auditState.page = 1;
+                loadAuditLogs();
+            }
+        });
 
     </script>
 </body>
