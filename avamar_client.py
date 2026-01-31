@@ -11,7 +11,7 @@ if not VERIFY_SSL:
 
 
 class AvamarClient:
-    def __init__(self, host, username, password):
+    def __init__(self, host, username, password, role='source'):
         self.host = host
         self.base_url = f"https://{host}"
         self.username = username
@@ -19,9 +19,11 @@ class AvamarClient:
         self.token = None
         self.session = requests.Session()
         self.session.verify = VERIFY_SSL
+        self.role = role  # 'source' or 'destination'
         
-        # OAuth Client Credentials - configurable via environment
-        self.client_id = os.environ.get('AVAMAR_CLIENT_ID', 'AvamarMigrator')
+        # OAuth Client Credentials - distinct for source vs destination
+        base_client_id = os.environ.get('AVAMAR_CLIENT_ID', 'AvamarMigrator')
+        self.client_id = f"{base_client_id}_{role}"
         self.client_secret = os.environ.get('AVAMAR_CLIENT_SECRET', 'AvamarMigratorSecret123!')
 
     def get_system_status(self):

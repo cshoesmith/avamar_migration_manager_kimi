@@ -115,7 +115,8 @@ def get_client_by_id(is_source, id):
         conf = settings.get_destination_by_id(id)
     
     if conf:
-        return AvamarClient(conf['host'], conf['user'], conf['password'])
+        role = 'source' if is_source else 'destination'
+        return AvamarClient(conf['host'], conf['user'], conf['password'], role=role)
     return None
 
 @app.route('/api/jobs/<group_name>/client/<client_name>/backups', methods=['GET'])
@@ -137,7 +138,8 @@ def get_migration_backups(group_name, client_name):
         if conf:
             try:
                 pw = settings._decrypt(conf['password'])
-                ac = AvamarClient(conf['host'], conf['user'], pw)
+                role = 'source' if is_source else 'destination'
+                ac = AvamarClient(conf['host'], conf['user'], pw, role=role)
                 if ac._authenticate():
                     return ac
             except:
@@ -674,7 +676,7 @@ def replication_status():
             if s['host'] == host:
                 try:
                     pw = settings._decrypt(s['password'])
-                    cl = AvamarClient(host, s['user'], pw)
+                    cl = AvamarClient(host, s['user'], pw, role='source')
                     cl._authenticate()
                     clients[host] = cl
                     return cl
@@ -776,7 +778,8 @@ def perform_migration_check(limit_group_name=None):
                     # settings.get_source_by_id decrypts it, but we have the raw list.
                     # Let's assume we need to decrypt.
                     pw = settings._decrypt(conf['password'])
-                    ac = AvamarClient(conf['host'], conf['user'], pw)
+                    role = 'source' if is_source else 'destination'
+                    ac = AvamarClient(conf['host'], conf['user'], pw, role=role)
                     
                     # Test auth
                     # _authenticate now returns True or raises
