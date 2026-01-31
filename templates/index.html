@@ -239,6 +239,32 @@
             font-weight: 500;
         }
 
+        /* Section Collapse Button Styles */
+        .collapse-btn {
+            background: transparent;
+            border: none;
+            color: #0076CE;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 4px 8px;
+            margin-left: 10px;
+            border-radius: 3px;
+            transition: background-color 0.2s;
+        }
+        .collapse-btn:hover {
+            background-color: rgba(0, 118, 206, 0.1);
+        }
+        .section-content {
+            transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+            max-height: 2000px;
+            opacity: 1;
+            overflow: hidden;
+        }
+        .section-content.collapsed {
+            max-height: 0;
+            opacity: 0;
+        }
+
         /* Modals */
         .modal-overlay {
             display: none; /* Hidden by default */
@@ -548,9 +574,9 @@
         <!-- Section 1: Source Client Inventory -->
         <div class="section">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                     <h2>Source Client Inventory</h2>
-                     <p>Discovered clients on the source system.</p>
+                <div style="display:flex; align-items:center;">
+                     <h2 style="margin:0;">Source Client Inventory</h2>
+                     <button class="collapse-btn" onclick="toggleSection('sourceInventory')" title="Collapse/Expand">&#9660;</button>
                 </div>
                 <div>
                     <button id="btnRefreshSource" onclick="scanClients()" title="Rescan Source" style="background-color: transparent; color: #0076CE; border:none; font-size:24px; cursor:pointer;">
@@ -560,24 +586,27 @@
                 </div>
             </div>
             
-            <div class="scrollable-table" style="max-height: 250px;">
-                <table id="dashClientTable">
-                    <thead>
-                        <tr>
-                            <th>Client Name</th>
-                            <th>Domain</th>
-                            <th>Total Backups</th>
-                            <th>Last Backup Date/Time</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr><td colspan="5" style="text-align:center;">Select a Source System to view clients...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            <div style="margin-top:10px; font-size:12px; color:#666; text-align:right;">
-                Total Clients: <span id="dashClientCount">0</span>
+            <div id="sourceInventory" class="section-content">
+                <p style="margin-top:10px; color:#666;">Discovered clients on the source system.</p>
+                <div class="scrollable-table" style="max-height: 250px;">
+                    <table id="dashClientTable">
+                        <thead>
+                            <tr>
+                                <th>Client Name</th>
+                                <th>Domain</th>
+                                <th>Total Backups</th>
+                                <th>Last Backup Date/Time</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="5" style="text-align:center;">Select a Source System to view clients...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div style="margin-top:10px; font-size:12px; color:#666; text-align:right;">
+                    Total Clients: <span id="dashClientCount">0</span>
+                </div>
             </div>
         </div>
 
@@ -586,33 +615,38 @@
 
         <!-- Section 3: Replication -->
         <div class="section">
-            <h2>Replication Management</h2>
-            
-            <span id="replStatus" style="font-weight: 600;"></span>
-
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 15px;">
-                <h3 style="margin: 0;">Replication Jobs</h3>
-                {% if current_user.role == 'admin' %}
-                <button onclick="openWizard()" style="height: 36px; font-size: 14px; background-color: #0076CE;">+ Add Replication Group Wizard</button>
-                {% endif %}
+            <div style="display:flex; align-items:center;">
+                <h2 style="margin:0;">Replication Management</h2>
+                <button class="collapse-btn" onclick="toggleSection('replicationContent')" title="Collapse/Expand">&#9660;</button>
             </div>
-            <div id="activeJobsContainer">
-                <table id="jobsTable">
-                    <thead>
-                        <tr>
-                            <th>Group Name</th>
-                            <th>State</th>
-                            <th>Clients</th>
-                            <th>Status</th>
-                            <th>Progress</th>
-                            <th>Backup Groups Removed</th>
-                            <th width="100">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- populated via JS -->
-                    </tbody>
-                </table>
+            
+            <div id="replicationContent" class="section-content">
+                <span id="replStatus" style="font-weight: 600;"></span>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 15px;">
+                    <h3 style="margin: 0;">Replication Jobs</h3>
+                    {% if current_user.role == 'admin' %}
+                    <button onclick="openWizard()" style="height: 36px; font-size: 14px; background-color: #0076CE;">+ Add Replication Group Wizard</button>
+                    {% endif %}
+                </div>
+                <div id="activeJobsContainer">
+                    <table id="jobsTable">
+                        <thead>
+                            <tr>
+                                <th>Group Name</th>
+                                <th>State</th>
+                                <th>Clients</th>
+                                <th>Status</th>
+                                <th>Progress</th>
+                                <th>Backup Groups Removed</th>
+                                <th width="100">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- populated via JS -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -806,6 +840,21 @@
                 return `${day}/${month}/${year} ${hours}:${minutes} ${ampm}`;
             } catch (e) {
                 return dateStr;
+            }
+        }
+
+        // Section Collapse/Expand Toggle
+        function toggleSection(sectionId) {
+            const content = document.getElementById(sectionId);
+            const btn = event.target;
+            if (content.classList.contains('collapsed')) {
+                content.classList.remove('collapsed');
+                btn.innerHTML = '&#9660;'; // Down arrow
+                btn.title = 'Collapse';
+            } else {
+                content.classList.add('collapsed');
+                btn.innerHTML = '&#9654;'; // Right arrow
+                btn.title = 'Expand';
             }
         }
 
