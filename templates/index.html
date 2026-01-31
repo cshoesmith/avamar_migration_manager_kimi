@@ -181,12 +181,38 @@
             gap: 8px;
         }
         .capacity-bar-bg {
-            width: 80px;
+            width: 100px;
             height: 12px;
-            background-color: #e9ecef;
+            background-color: #f0f0f0;
             border-radius: 6px;
             overflow: hidden;
-            border: 1px solid #ddd;
+            border: 1px solid #ccc;
+            /* 100 increment grid lines */
+            background-image: repeating-linear-gradient(
+                90deg,
+                transparent,
+                transparent 0.98px,
+                #ccc 0.98px,
+                #ccc 1px
+            );
+            position: relative;
+        }
+        /* Major tick marks every 10% */
+        .capacity-bar-bg::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: repeating-linear-gradient(
+                90deg,
+                transparent,
+                transparent 9px,
+                #aaa 9px,
+                #aaa 10px
+            );
+            pointer-events: none;
         }
         .capacity-bar-fill {
             height: 100%;
