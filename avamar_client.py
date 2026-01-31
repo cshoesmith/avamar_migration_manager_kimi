@@ -42,9 +42,10 @@ class AvamarClient:
             raise
 
     def _authenticate(self):
-        print(f"Starting Authentication logic for {self.host}...")
+        print(f"Starting Authentication logic for {self.host} (role: {self.role}, client_id: {self.client_id})...")
         
         # Try to get token first
+        print("Step 1: Attempting to get access token...")
         token = self._get_access_token()
         if token:
             self.token = token
@@ -52,15 +53,20 @@ class AvamarClient:
             return True
 
         # If failed, try to register the client
-        print("Token retrieval failed. Attempting to register OAuth client...")
+        print("Step 2: Token retrieval failed. Attempting to register OAuth client...")
         if self._create_oauth_client():
+            print("Step 3: Client registration succeeded. Retrying token retrieval...")
             token = self._get_access_token()
             if token:
                 self.token = token
                 print("Token retrieved successfully after registration.")
                 return True
+            else:
+                print("Step 3: Token retrieval still failed after client registration.")
+        else:
+            print("Step 2: Client registration failed.")
         
-        raise Exception("Authentication Failed: Could not get token or register client.")
+        raise Exception(f"Authentication Failed: Could not get token or register client (client_id: {self.client_id}). Check Avamar credentials and ensure user has OAuth client management permissions.")
 
     def _create_oauth_client(self):
         url = f"{self.base_url}/api/v1/oauth2/clients"
@@ -122,13 +128,17 @@ class AvamarClient:
         }
         
         try:
+            print(f"  Token request: client_id={self.client_id}, user={self.username}")
             resp = self.session.post(url, data=data, headers=headers)
+            print(f"  Token response: {resp.status_code}")
             if resp.status_code == 200:
-                return resp.json().get('access_token')
-            print(f"Failed to get token: {resp.status_code} {resp.text}")
+                token = resp.json().get('access_token')
+                print(f"  Token received: {token[:20]}..." if token else "  No token in response")
+                return token
+            print(f"  Failed to get token: {resp.status_code} - {resp.text[:200]}")
             return None
         except Exception as e:
-            print(f"Exception getting token: {e}")
+            print(f"  Exception getting token: {e}")
             return None
 
     def _request(self, method, endpoint, params=None, json_data=None):
