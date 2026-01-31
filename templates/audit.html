@@ -54,10 +54,15 @@
             font-size: 13px;
         }
         .page-size-selector select {
-            padding: 5px 8px;
+            padding: 5px 10px;
             border: 1px solid #ccc;
-            border-radius: 3px;
+            border-radius: 4px;
             font-size: 13px;
+            background-color: white;
+            cursor: pointer;
+        }
+        .page-size-selector select:hover {
+            border-color: #0076CE;
         }
         
         /* Checkbox */
@@ -253,13 +258,6 @@
                         {% endif %}
                     </div>
                     
-                    <div class="page-size-selector">
-                        <label for="pageSize">Show:</label>
-                        <select id="pageSize" onchange="changePageSize()">
-                            <option value="10" {% if page_size == 10 %}selected{% endif %}>10 per page</option>
-                            <option value="100" {% if page_size == 100 %}selected{% endif %}>100 per page</option>
-                        </select>
-                    </div>
                 </div>
                 
                 <!-- Right side: Clear button -->
@@ -350,13 +348,20 @@
         <!-- Pagination -->
         {% if total_pages > 0 %}
         <div class="pagination">
-            <div class="page-info">
-                {% set start_entry = (page - 1) * page_size + 1 %}
-                {% set end_entry = page * page_size %}
-                {% if end_entry > total_count %}{% set end_entry = total_count %}{% endif %}
-                Showing {{ start_entry }} - {{ end_entry }} 
-                of {{ total_count }} entries
-                {% if search %}(filtered from search){% endif %}
+            <div class="page-info" style="display: flex; align-items: center; gap: 20px;">
+                <div class="page-size-selector">
+                    <label for="pageSize">Rows per page:</label>
+                    <select id="pageSize" onchange="changePageSize()">
+                        <option value="10" {% if page_size == 10 %}selected{% endif %}>10</option>
+                        <option value="100" {% if page_size == 100 %}selected{% endif %}>100</option>
+                    </select>
+                </div>
+                <span>
+                    {% set start_entry = (page - 1) * page_size + 1 %}
+                    {% set end_entry = page * page_size %}
+                    {% if end_entry > total_count %}{% set end_entry = total_count %}{% endif %}
+                    {{ start_entry }}-{{ end_entry }} of {{ total_count }}
+                </span>
             </div>
             <div class="page-controls">
                 <button class="page-btn" onclick="goToPage(1)" {% if page == 1 %}disabled{% endif %}>&laquo;</button>
