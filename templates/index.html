@@ -567,11 +567,12 @@
                             <th>Client Name</th>
                             <th>Domain</th>
                             <th>Total Backups</th>
+                            <th>Last Backup Date/Time</th>
                             <th>Status</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr><td colspan="4" style="text-align:center;">Select a Source System to view clients...</td></tr>
+                        <tr><td colspan="5" style="text-align:center;">Select a Source System to view clients...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -786,6 +787,29 @@
                 if (c.indexOf(name) == 0) { return c.substring(name.length, c.length); }
             }
             return "";
+        }
+
+        // Global Date Formatter Helper - Simple DD/MM/YYYY HH:MM AM/PM format
+        function formatDate(dateStr) {
+            if (!dateStr || dateStr === 'Unknown Date') return 'Unknown';
+            try {
+                const d = new Date(dateStr);
+                if (isNaN(d.getTime())) return dateStr;
+                
+                const day = d.getDate().toString().padStart(2, '0');
+                const month = (d.getMonth() + 1).toString().padStart(2, '0');
+                const year = d.getFullYear();
+                
+                let hours = d.getHours();
+                const minutes = d.getMinutes().toString().padStart(2, '0');
+                const ampm = hours >= 12 ? 'pm' : 'am';
+                hours = hours % 12;
+                hours = hours ? hours : 12;
+                
+                return `${day}/${month}/${year} ${hours}:${minutes} ${ampm}`;
+            } catch (e) {
+                return dateStr;
+            }
         }
 
         // Settings Logic
@@ -1162,6 +1186,9 @@
                 }
                 const textColor = c.is_candidate ? '#00695c' : '#616161';
                 
+                // Format last backup date
+                const lastBackup = c.lastBackup ? formatDate(c.lastBackup) : 'Never';
+                
                 let html = '';
                 if(withCheckbox) {
                     html += `<td><input type="checkbox" class="client-cb" value="${c.id}"></td>`;
@@ -1172,10 +1199,10 @@
                     <td>${c.totalBackups}</td>
                 `;
                 
-                // Dashboard has Last Backup Column - User requested removal
-                // if(!withCheckbox) {
-                //      html += `<td>${lastBackup}</td>`;
-                // }
+                // Add Last Backup column for dashboard view (no checkbox)
+                if(!withCheckbox) {
+                     html += `<td style="font-size:12px; color:#666;">${lastBackup}</td>`;
+                }
                 
                 html += `<td><span title="${badgeTitle}" style="background:${badgeColor}; color:${textColor}; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:600; cursor: help;">${badgeText}</span></td>`;
                 
