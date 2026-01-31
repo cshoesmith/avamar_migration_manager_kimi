@@ -6,13 +6,6 @@
             "host": "192.168.0.200",
             "user": "MCUser",
             "password": "gAAAAABpeJE71xc6BrK7ZElnMGqks_TLGCZ51wGNUrGxayhALa6aWcOj2TH1Coh0Rh8XiZSr4aCseQ9S9ZEotQ9bmt67qrRRxA=="
-        },
-        {
-            "id": "2375ad4b",
-            "name": "avamar2.lab",
-            "host": "192.168.0.220",
-            "user": "admin",
-            "password": "gAAAAABpfUxOXUpe_fxU7G1th0V6mWUYsGX7rZZAB_w1NpmwtNs5lWIRORg3GR9Ay2AoXb4rzHeMKJ4v5lbi4_-kQcFeNVtoPQ=="
         }
     ],
     "destinations": [

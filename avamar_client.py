@@ -92,21 +92,26 @@ class AvamarClient:
         }
         
         try:
+            print(f"  Creating OAuth client: {self.client_id}")
+            print(f"  Auth user: {self.username}")
             resp = self.session.post(url, json=payload, headers=headers)
+            print(f"  Client registration response: {resp.status_code}")
             if resp.status_code in [200, 201]:
+                print(f"  Client created successfully")
                 return True
             if resp.status_code == 400:
-                print("Client likely already exists.")
+                print(f"  Client likely already exists (400)")
                 return True
             
             if resp.status_code == 401:
-                print("Client registration returned 401. Assuming client exists and proceeding.")
+                print(f"  Client registration returned 401 (unauthorized) - user may lack permissions")
+                print(f"  Response: {resp.text[:200]}")
                 return True
             
-            print(f"Failed to create client: {resp.status_code} {resp.text}")
+            print(f"  Failed to create client: {resp.status_code} {resp.text[:200]}")
             return False
         except Exception as e:
-            print(f"Exception creating client: {e}")
+            print(f"  Exception creating client: {e}")
             return False
 
     def _get_access_token(self):
