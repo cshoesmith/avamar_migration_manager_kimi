@@ -1290,6 +1290,78 @@ def clear_audit_logs():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+@app.route('/api/users', methods=['GET', 'POST'])
+@admin_required
+def handle_users():
+    """List all users or create a new user."""
+    if request.method == 'GET':
+        users = database.get_all_users()
+        return jsonify(users)
+    
+    elif request.method == 'POST':
+        data = request.json
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+        role = data.get('role', 'user')
+        
+        # Validation
+        if not username:
+            return jsonify({'error': 'Username is required'}), 400
+        if not password:
+            return jsonify({'error': 'Password is required'}), 400
+        if role not in ['admin', 'user']:
+            return jsonify({'error': 'Role must be admin or user'}), 400
+        
+        # Check if username already exists
+        if database.get_user_by_username(username):
+            return jsonify({'error': f"Username '{username}' already exists"}), 400
+        
+        # Hash password and create user
+        password_hash = generate_password_hash(password)
+        user_id = database.create_user(username, password_hash, role)
+        
+        if user_id:
+            database.log_audit_event(
+                current_user.username,
+                'user_created',
+                f"Created user '{username}' with role '{role}'"
+            )
+            return jsonify({'status': 'ok', 'id': user_id, 'username': username, 'role': role})
+        else:
+            return jsonify({'error': 'Failed to create user'}), 500
+
+
+@app.route('/api/users/<int:user_id>', methods=['DELETE'])
+@admin_required
+def delete_user(user_id):
+    """Delete a user."""
+    # Prevent deleting yourself
+    if user_id == current_user.id:
+        return jsonify({'error': 'Cannot delete your own account'}), 400
+    
+    # Get user info before deletion for audit log
+    conn = database.get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT username FROM users WHERE id = ?", (user_id,))
+    row = cur.fetchone()
+    conn.close()
+    
+    if not row:
+        return jsonify({'error': 'User not found'}), 404
+    
+    username = row['username']
+    
+    if database.delete_user(user_id):
+        database.log_audit_event(
+            current_user.username,
+            'user_deleted',
+            f"Deleted user '{username}'"
+        )
+        return jsonify({'status': 'ok'})
+    else:
+        return jsonify({'error': 'Failed to delete user'}), 500
+
 if __name__ == '__main__':
     database.init_db()
     app.run(debug=True, port=5000)

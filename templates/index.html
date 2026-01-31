@@ -265,6 +265,60 @@
             opacity: 0;
         }
 
+        /* Settings Tabs */
+        .settings-tabs {
+            display: flex;
+            border-bottom: 2px solid #eee;
+            margin-bottom: 20px;
+        }
+        .settings-tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            font-size: 14px;
+            color: #666;
+            transition: all 0.2s;
+        }
+        .settings-tab:hover {
+            color: #0076CE;
+            background: rgba(0, 118, 206, 0.05);
+        }
+        .settings-tab.active {
+            color: #0076CE;
+            border-bottom-color: #0076CE;
+            font-weight: 600;
+        }
+        .settings-panel {
+            display: none;
+        }
+        .settings-panel.active {
+            display: block;
+        }
+        .user-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .user-role-badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 3px;
+            margin-left: 10px;
+        }
+        .user-role-badge.admin {
+            background: #0076CE;
+            color: white;
+        }
+        .user-role-badge.user {
+            background: #6c757d;
+            color: white;
+        }
+
         /* Modals */
         .modal-overlay {
             display: none; /* Hidden by default */
@@ -340,34 +394,69 @@
 
     <!-- Settings Modal -->
     <div id="settingsModal" class="modal-overlay">
-        <div class="modal-content" style="width: 600px;">
+        <div class="modal-content" style="width: 650px; max-height: 80vh; overflow-y: auto;">
             <div class="modal-header">
                 <h2>Settings</h2>
                 <button onclick="closeSettings()" style="background-color: transparent; color: #666; font-size: 20px; padding: 0;">&times;</button>
             </div>
             
-            <h3>Source Systems</h3>
-            <ul id="sourceList"></ul>
-            <div style="background:#eee; padding:10px;">
-                <input id="newSxName" placeholder="Name">
-                <input id="newSxHost" placeholder="Host/IP">
-                <input id="newSxUser" placeholder="User">
-                <input id="newSxPass" type="password" placeholder="Password">
-                <button onclick="addSource()">Add Source</button>
-            </div>
-
-            <h3>Destination Systems</h3>
-            <ul id="destList"></ul>
-            <div style="background:#eee; padding:10px;">
-                <input id="newDxName" placeholder="Name">
-                <input id="newDxHost" placeholder="Host/IP">
-                <input id="newDxUser" placeholder="User">
-                <input id="newDxPass" type="password" placeholder="Password">
-                <button onclick="addDest()">Add Destination</button>
+            <!-- Settings Tabs -->
+            <div class="settings-tabs">
+                <button class="settings-tab active" onclick="switchSettingsTab('servers')" id="tab-servers">Servers</button>
+                <button class="settings-tab" onclick="switchSettingsTab('users')" id="tab-users">Users</button>
             </div>
             
-            <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center; padding-top:10px; border-top:1px solid #eee;">
-                <button onclick="clearConfiguration()" style="background-color: #dc3545; font-size: 11px;">⚠️ Clear All Configuration</button>
+            <!-- Servers Panel -->
+            <div id="panel-servers" class="settings-panel active">
+                <h3>Source Systems</h3>
+                <ul id="sourceList"></ul>
+                <div style="background:#eee; padding:10px; margin-bottom: 20px;">
+                    <input id="newSxName" placeholder="Name" style="margin-bottom: 5px;">
+                    <input id="newSxHost" placeholder="Host/IP" style="margin-bottom: 5px;">
+                    <input id="newSxUser" placeholder="User" style="margin-bottom: 5px;">
+                    <input id="newSxPass" type="password" placeholder="Password" style="margin-bottom: 5px;">
+                    <button onclick="addSource()">Add Source</button>
+                </div>
+
+                <h3>Destination Systems</h3>
+                <ul id="destList"></ul>
+                <div style="background:#eee; padding:10px;">
+                    <input id="newDxName" placeholder="Name" style="margin-bottom: 5px;">
+                    <input id="newDxHost" placeholder="Host/IP" style="margin-bottom: 5px;">
+                    <input id="newDxUser" placeholder="User" style="margin-bottom: 5px;">
+                    <input id="newDxPass" type="password" placeholder="Password" style="margin-bottom: 5px;">
+                    <button onclick="addDest()">Add Destination</button>
+                </div>
+                
+                <div style="margin-top: 20px; padding-top:10px; border-top:1px solid #eee;">
+                    <button onclick="clearConfiguration()" style="background-color: #dc3545; font-size: 11px;">⚠️ Clear All Configuration</button>
+                </div>
+            </div>
+            
+            <!-- Users Panel -->
+            <div id="panel-users" class="settings-panel">
+                <h3>User Accounts</h3>
+                <div id="userList" style="margin-bottom: 15px;">
+                    <!-- Populated via JavaScript -->
+                </div>
+                
+                <h4>Add New User</h4>
+                <div style="background:#eee; padding:10px;">
+                    <input id="newUsername" placeholder="Username" style="margin-bottom: 5px; width: 200px;">
+                    <input id="newUserPass" type="password" placeholder="Password" style="margin-bottom: 5px; width: 200px;">
+                    <select id="newUserRole" style="margin-bottom: 5px; padding: 6px;">
+                        <option value="user">User</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                    <button onclick="addUser()">Add User</button>
+                </div>
+                <p style="font-size: 11px; color: #666; margin-top: 8px;">
+                    <strong>Admin:</strong> Full access to settings, users, and all operations<br>
+                    <strong>User:</strong> Can view status and reports only
+                </p>
+            </div>
+            
+            <div style="margin-top: 20px; text-align: right; padding-top:10px; border-top:1px solid #eee;">
                 <button onclick="closeSettings()" style="background-color: #666;">Close</button>
             </div>
         </div>
@@ -862,10 +951,121 @@
         function openSettings() {
             document.getElementById('settingsModal').style.display = 'flex';
             loadSettings();
+            loadUsers();
         }
         function closeSettings() {
             document.getElementById('settingsModal').style.display = 'none';
             loadSelectors(); // Refresh dropdowns
+        }
+
+        function switchSettingsTab(tab) {
+            // Update tab buttons
+            document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+            
+            // Update panels
+            document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById('panel-' + tab).classList.add('active');
+        }
+
+        // User Management
+        async function loadUsers() {
+            try {
+                const res = await fetch('/api/users');
+                const users = await res.json();
+                
+                const userList = document.getElementById('userList');
+                if (users.length === 0) {
+                    userList.innerHTML = '<p style="color: #666; font-style: italic;">No users found.</p>';
+                    return;
+                }
+                
+                let html = '';
+                users.forEach(u => {
+                    const roleClass = u.role === 'admin' ? 'admin' : 'user';
+                    html += `
+                        <div class="user-list-item">
+                            <div>
+                                <strong>${u.username}</strong>
+                                <span class="user-role-badge ${roleClass}">${u.role}</span>
+                            </div>
+                            <button onclick="deleteUser(${u.id}, '${u.username}')" 
+                                    style="background-color: #dc3545; padding: 4px 10px; font-size: 11px;">
+                                Delete
+                            </button>
+                        </div>
+                    `;
+                });
+                userList.innerHTML = html;
+            } catch (e) {
+                console.error('Failed to load users:', e);
+                document.getElementById('userList').innerHTML = 
+                    '<p style="color: #dc3545;">Failed to load users.</p>';
+            }
+        }
+
+        async function addUser() {
+            const username = document.getElementById('newUsername').value.trim();
+            const password = document.getElementById('newUserPass').value;
+            const role = document.getElementById('newUserRole').value;
+            
+            if (!username) {
+                alert('Username is required');
+                return;
+            }
+            if (!password) {
+                alert('Password is required');
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username, password, role})
+                });
+                
+                const data = await res.json();
+                
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+                
+                // Clear inputs
+                document.getElementById('newUsername').value = '';
+                document.getElementById('newUserPass').value = '';
+                document.getElementById('newUserRole').value = 'user';
+                
+                // Reload user list
+                loadUsers();
+                alert('User created successfully');
+                
+            } catch (e) {
+                alert('Failed to create user: ' + e);
+            }
+        }
+
+        async function deleteUser(userId, username) {
+            if (!confirm(`Are you sure you want to delete user "${username}"?\n\nThis action cannot be undone.`)) {
+                return;
+            }
+            
+            try {
+                const res = await fetch(`/api/users/${userId}`, {method: 'DELETE'});
+                const data = await res.json();
+                
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+                
+                loadUsers();
+                alert('User deleted successfully');
+                
+            } catch (e) {
+                alert('Failed to delete user: ' + e);
+            }
         }
 
         async function loadSettings() {

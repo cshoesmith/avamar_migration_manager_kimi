@@ -250,6 +250,51 @@ def get_user_by_username(username):
     return None
 
 
+def get_all_users():
+    """Get all users (excluding password hashes for security)."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id, username, role FROM users ORDER BY username")
+    users = [dict(row) for row in cur.fetchall()]
+    conn.close()
+    return users
+
+
+def create_user(username, password_hash, role='user'):
+    """Create a new user."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+            (username, password_hash, role)
+        )
+        conn.commit()
+        return cur.lastrowid
+    except sqlite3.IntegrityError:
+        return None  # Username already exists
+    except Exception as e:
+        print(f"Error creating user: {e}")
+        return None
+    finally:
+        conn.close()
+
+
+def delete_user(user_id):
+    """Delete a user by ID."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception as e:
+        print(f"Error deleting user: {e}")
+        return False
+    finally:
+        conn.close()
+
+
 def get_user_by_id(user_id):
     conn = get_db_connection()
     cur = conn.cursor()
