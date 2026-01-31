@@ -55,6 +55,68 @@
         }
         .status-msg.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .status-msg.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        
+        /* Modal Styles - Matching main app */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 24px;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            border-top: 4px solid #0076CE;
+            max-width: 90%;
+            width: 450px;
+            position: relative;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .modal-header h2 {
+            margin: 0;
+            font-size: 20px;
+            color: #0076CE;
+        }
+        .modal-close {
+            background-color: transparent;
+            color: #666;
+            font-size: 20px;
+            padding: 0;
+            border: none;
+            cursor: pointer;
+        }
+        .modal-body {
+            margin: 20px 0;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .modal-footer {
+            margin-top: 20px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .modal-btn-cancel {
+            background-color: #666;
+        }
+        .modal-btn-confirm {
+            background-color: #0076CE;
+        }
     </style>
 </head>
 <body>
@@ -74,7 +136,7 @@
                 <span class="info-text">Archived logs are kept but hidden from normal view</span>
             </div>
             <div class="toolbar-right">
-                <button id="clearBtn" onclick="clearLogs()" title="Archive all visible logs">Clear Audit Logs</button>
+                <button id="clearBtn" onclick="showClearConfirm()" title="Archive all visible logs">Clear Audit Logs</button>
             </div>
         </div>
         
@@ -119,17 +181,56 @@
         </table>
     </div>
     
+    <!-- Custom Confirmation Modal -->
+    <div id="confirmModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="confirmTitle">Confirm Action</h2>
+                <button class="modal-close" onclick="closeConfirmModal(false)">&times;</button>
+            </div>
+            <div id="confirmBody" class="modal-body">
+                Are you sure?
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn-cancel" onclick="closeConfirmModal(false)">Cancel</button>
+                <button class="modal-btn-confirm" onclick="closeConfirmModal(true)">OK</button>
+            </div>
+        </div>
+    </div>
+    
     <script>
+        let confirmCallback = null;
+        
         function toggleHistory() {
             const showHistory = document.getElementById('showHistory').checked;
             window.location.href = showHistory ? '?show_history=true' : '?show_history=false';
         }
         
-        async function clearLogs() {
-            if (!confirm('This will archive all visible audit logs.\n\nArchived logs can still be viewed by checking "Show history".\n\nAre you sure you want to continue?')) {
-                return;
-            }
+        function showClearConfirm() {
+            const modal = document.getElementById('confirmModal');
+            const title = document.getElementById('confirmTitle');
+            const body = document.getElementById('confirmBody');
             
+            title.innerText = 'Clear Audit Logs';
+            body.innerHTML = `
+                <p>This will archive all visible audit logs.</p>
+                <p>Archived logs can still be viewed by checking "Show history".</p>
+                <p style="color: #dc3545; font-weight: bold;">Are you sure you want to continue?</p>
+            `;
+            
+            confirmCallback = clearLogs;
+            modal.style.display = 'flex';
+        }
+        
+        function closeConfirmModal(result) {
+            document.getElementById('confirmModal').style.display = 'none';
+            if (result && confirmCallback) {
+                confirmCallback();
+            }
+            confirmCallback = null;
+        }
+        
+        async function clearLogs() {
             const btn = document.getElementById('clearBtn');
             const statusDiv = document.getElementById('statusMsg');
             
@@ -164,6 +265,13 @@
             statusDiv.className = 'status-msg ' + type;
             statusDiv.style.display = 'block';
         }
+        
+        // Close modal when clicking outside
+        document.getElementById('confirmModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeConfirmModal(false);
+            }
+        });
     </script>
 </body>
 </html>
