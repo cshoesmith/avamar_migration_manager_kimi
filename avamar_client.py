@@ -563,3 +563,10 @@ class AvamarClient:
              return {"status": "success", "message": "Stop command sent."}
         else:
              return {"error": f"Failed to stop activity: {resp_cancel.status_code} {resp_cancel.text}"}
+
+    def get_storage_info(self):
+        """Get GSAN storage information including total and used capacity in bytes."""
+        resp = self._request('GET', '/v1/system/gsan-storage-information')
+        if resp.status_code == 200:
+            return resp.json()
+        return None

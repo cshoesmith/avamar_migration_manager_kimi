@@ -429,6 +429,9 @@
                      </select>
                     <span id="sourceStatus" class="status-val" style="margin-left: 10px;">Checking...</span>
                 </div>
+                <div id="sourceCapacity" style="font-size: 11px; color: #666; margin-top: 4px; display: none;">
+                    Capacity: <span id="sourceCapText">-</span>
+                </div>
             </div>
             <div class="status-item">
                 <span class="status-label">Destination System (Verify)</span>
@@ -437,6 +440,9 @@
                         <option value="">Select Destination...</option>
                      </select>
                     <span id="destStatus" class="status-val" style="margin-left: 10px;">Checking...</span>
+                </div>
+                <div id="destCapacity" style="font-size: 11px; color: #666; margin-top: 4px; display: none;">
+                    Capacity: <span id="destCapText">-</span>
                 </div>
             </div>
             {% if current_user.role == 'admin' %}
@@ -922,6 +928,9 @@
                 document.getElementById('destStatus').innerText = d.status;
                 document.getElementById('destStatus').style.color = d.status === 'Online' ? 'green' : 'red';
                 // document.getElementById('destHost').innerText = d.host; // Element removed
+                
+                // Fetch capacity information after successful health check
+                await fetchCapacity();
             } catch(e) {
                 console.error("Health check failed", e);
                 // If total failure (app down), also lockout
@@ -930,6 +939,56 @@
                 
                 document.getElementById('sourceStatus').innerText = "Error";
                 document.getElementById('destStatus').innerText = "Error";
+            }
+        }
+
+        async function fetchCapacity() {
+            const sId = document.getElementById('sourceSelector').value;
+            const dId = document.getElementById('destSelector').value;
+            
+            try {
+                const res = await fetch(`/api/system/capacity?source_id=${sId}&dest_id=${dId}`);
+                if (res.status !== 200) return;
+                
+                const data = await res.json();
+                
+                // Update source capacity display
+                const sourceCapEl = document.getElementById('sourceCapacity');
+                const sourceCapText = document.getElementById('sourceCapText');
+                if (data.source && data.source.total_gb) {
+                    const used = data.source.used_gb || 0;
+                    const total = data.source.total_gb || 0;
+                    const percent = data.source.usage_percent || 0;
+                    sourceCapText.innerHTML = `${used.toFixed(0)} / ${total.toFixed(0)} GB (${percent}%)`;
+                    sourceCapText.title = `Free: ${(data.source.free_gb || 0).toFixed(2)} GB`;
+                    sourceCapEl.style.display = 'block';
+                    // Color code based on usage
+                    if (percent > 90) sourceCapText.style.color = '#dc3545';
+                    else if (percent > 75) sourceCapText.style.color = '#ffc107';
+                    else sourceCapText.style.color = '#28a745';
+                } else {
+                    sourceCapEl.style.display = 'none';
+                }
+                
+                // Update destination capacity display
+                const destCapEl = document.getElementById('destCapacity');
+                const destCapText = document.getElementById('destCapText');
+                if (data.destination && data.destination.total_gb) {
+                    const used = data.destination.used_gb || 0;
+                    const total = data.destination.total_gb || 0;
+                    const percent = data.destination.usage_percent || 0;
+                    destCapText.innerHTML = `${used.toFixed(0)} / ${total.toFixed(0)} GB (${percent}%)`;
+                    destCapText.title = `Free: ${(data.destination.free_gb || 0).toFixed(2)} GB`;
+                    destCapEl.style.display = 'block';
+                    // Color code based on usage
+                    if (percent > 90) destCapText.style.color = '#dc3545';
+                    else if (percent > 75) destCapText.style.color = '#ffc107';
+                    else destCapText.style.color = '#28a745';
+                } else {
+                    destCapEl.style.display = 'none';
+                }
+            } catch(e) {
+                console.error("Capacity fetch failed", e);
             }
         }
 

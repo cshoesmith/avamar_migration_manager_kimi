@@ -366,6 +366,60 @@ def system_health():
         
     return jsonify(health)
 
+
+@app.route('/api/system/capacity', methods=['GET'])
+@login_required
+def system_capacity():
+    """Get storage capacity information for source and destination systems."""
+    source_id = request.args.get('source_id') or request.cookies.get('source_id')
+    dest_id = request.args.get('dest_id') or request.cookies.get('dest_id')
+    
+    def format_gb(bytes_val):
+        """Convert bytes to GB with 2 decimal places."""
+        if not bytes_val:
+            return None
+        return round(bytes_val / (1024**3), 2)
+    
+    capacity = {
+        "source": {"total_gb": None, "used_gb": None, "free_gb": None, "usage_percent": None},
+        "destination": {"total_gb": None, "used_gb": None, "free_gb": None, "usage_percent": None}
+    }
+    
+    if source_id:
+        client = get_client_by_id(True, source_id)
+        if client:
+            try:
+                storage = client.get_storage_info()
+                if storage:
+                    total = storage.get('totalCapacity', 0)
+                    used = storage.get('usedCapacity', 0)
+                    capacity["source"]["total_gb"] = format_gb(total)
+                    capacity["source"]["used_gb"] = format_gb(used)
+                    capacity["source"]["free_gb"] = format_gb(total - used) if total and used else None
+                    if total:
+                        capacity["source"]["usage_percent"] = round((used / total) * 100, 1)
+            except Exception as e:
+                app.logger.warning(f"Failed to get source capacity: {e}")
+    
+    if dest_id:
+        client = get_client_by_id(False, dest_id)
+        if client:
+            try:
+                storage = client.get_storage_info()
+                if storage:
+                    total = storage.get('totalCapacity', 0)
+                    used = storage.get('usedCapacity', 0)
+                    capacity["destination"]["total_gb"] = format_gb(total)
+                    capacity["destination"]["used_gb"] = format_gb(used)
+                    capacity["destination"]["free_gb"] = format_gb(total - used) if total and used else None
+                    if total:
+                        capacity["destination"]["usage_percent"] = round((used / total) * 100, 1)
+            except Exception as e:
+                app.logger.warning(f"Failed to get destination capacity: {e}")
+    
+    return jsonify(capacity)
+
+
 @app.route('/api/scan', methods=['POST'])
 @admin_required
 def scan_clients():
