@@ -1135,6 +1135,7 @@ def delete_job(group_name):
 
 
 @app.route('/api/jobs/<group_name>/run', methods=['POST'])
+@login_required
 def run_job(group_name):
     # Find job to get source host
     all_jobs = database.get_all_migrations()
@@ -1162,6 +1163,12 @@ def run_job(group_name):
     try:
         resp = client.run_replication_group(target['id'])
         if resp.status_code == 200 or resp.status_code == 204:
+             # Log to audit log
+             database.log_audit_event(
+                 current_user.username,
+                 'replication_job_started',
+                 f"Started replication job for group '{group_name}' on {host}"
+             )
              return jsonify({'status': 'initiated'})
         return jsonify({'error': f"Avamar API Error: {resp.status_code} {resp.text}"}), 500
     except Exception as e:
