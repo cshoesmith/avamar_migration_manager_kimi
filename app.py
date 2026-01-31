@@ -57,7 +57,8 @@ def get_client_for_host(host, is_source=True):
         if conf['host'] == host:
             try:
                 pw = settings._decrypt(conf['password'])
-                cl = AvamarClient(host, conf['user'], pw)
+                role = 'source' if is_source else 'destination'
+                cl = AvamarClient(host, conf['user'], pw, role=role)
                 if cl._authenticate():
                     return cl
             except Exception as e:
@@ -118,6 +119,21 @@ def get_client_by_id(is_source, id):
         role = 'source' if is_source else 'destination'
         return AvamarClient(conf['host'], conf['user'], conf['password'], role=role)
     return None
+
+
+def check_host_conflict(host, is_source):
+    """Check if host already exists in the opposite list."""
+    if is_source:
+        # Check if host exists in destinations
+        for d in settings.get_destinations():
+            if d['host'] == host:
+                return True, f"Host {host} is already configured as a Destination"
+    else:
+        # Check if host exists in sources
+        for s in settings.get_sources():
+            if s['host'] == host:
+                return True, f"Host {host} is already configured as a Source"
+    return False, None
 
 @app.route('/api/jobs/<group_name>/client/<client_name>/backups', methods=['GET'])
 @login_required
@@ -260,6 +276,12 @@ def handle_sources():
             return jsonify({'error': 'Admin privileges required'}), 403
         data = request.json
         host = data.get('host')
+        
+        # Check for conflict with destinations
+        conflict, msg = check_host_conflict(host, is_source=True)
+        if conflict:
+            return jsonify({'error': msg}), 400
+            
         database.log_audit_event(current_user.username, 'source_added', f"Avamar Source {host} added")
         settings.add_source(data)
         return jsonify({'status': 'ok'})
@@ -275,6 +297,12 @@ def handle_destinations():
             return jsonify({'error': 'Admin privileges required'}), 403
         data = request.json
         host = data.get('host')
+        
+        # Check for conflict with sources
+        conflict, msg = check_host_conflict(host, is_source=False)
+        if conflict:
+            return jsonify({'error': msg}), 400
+            
         database.log_audit_event(current_user.username, 'dest_added', f"Avamar Destination {host} added")
         settings.add_destination(data)
         return jsonify({'status': 'ok'})
