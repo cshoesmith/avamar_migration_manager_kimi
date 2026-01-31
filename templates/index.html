@@ -161,11 +161,24 @@
         .scrollable-table { max-height: 300px; overflow-y: auto; border: 1px solid #eee; }
 
         /* Capacity Meter Bar Styles */
+        .capacity-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-left: 10px;
+        }
+        .capacity-label {
+            font-size: 9px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 2px;
+            line-height: 1;
+        }
         .capacity-meter {
             display: flex;
             align-items: center;
             gap: 8px;
-            margin-left: 5px;
         }
         .capacity-bar-bg {
             width: 80px;
@@ -463,11 +476,14 @@
                      </select>
                     <span id="sourceStatus" class="status-val">Checking...</span>
                     <!-- Capacity Bar -->
-                    <div id="sourceCapacity" class="capacity-meter" style="display: none;">
-                        <div class="capacity-bar-bg">
-                            <div id="sourceCapBar" class="capacity-bar-fill"></div>
+                    <div id="sourceCapacity" class="capacity-wrapper" style="display: none;">
+                        <div class="capacity-label">Capacity</div>
+                        <div class="capacity-meter">
+                            <div class="capacity-bar-bg">
+                                <div id="sourceCapBar" class="capacity-bar-fill"></div>
+                            </div>
+                            <span id="sourceCapText" class="capacity-text">-</span>
                         </div>
-                        <span id="sourceCapText" class="capacity-text">-</span>
                     </div>
                 </div>
             </div>
@@ -479,11 +495,14 @@
                      </select>
                     <span id="destStatus" class="status-val">Checking...</span>
                     <!-- Capacity Bar -->
-                    <div id="destCapacity" class="capacity-meter" style="display: none;">
-                        <div class="capacity-bar-bg">
-                            <div id="destCapBar" class="capacity-bar-fill"></div>
+                    <div id="destCapacity" class="capacity-wrapper" style="display: none;">
+                        <div class="capacity-label">Capacity</div>
+                        <div class="capacity-meter">
+                            <div class="capacity-bar-bg">
+                                <div id="destCapBar" class="capacity-bar-fill"></div>
+                            </div>
+                            <span id="destCapText" class="capacity-text">-</span>
                         </div>
-                        <span id="destCapText" class="capacity-text">-</span>
                     </div>
                 </div>
             </div>
