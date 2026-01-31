@@ -586,19 +586,16 @@
 
         <!-- Section 3: Replication -->
         <div class="section">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <h2>Replication Management</h2>
-                    <p>Replicate selected clients to the configured destination.</p>
-                </div>
-                {% if current_user.role == 'admin' %}
-                <button onclick="openWizard()" style="height: 40px; font-size: 14px; background-color: #0076CE;">+ Add Replication Group Wizard</button>
-                {% endif %}
-            </div>
+            <h2>Replication Management</h2>
             
             <span id="replStatus" style="font-weight: 600;"></span>
 
-            <h3 style="margin-top: 10px;">Replication Jobs</h3>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 15px;">
+                <h3 style="margin: 0;">Replication Jobs</h3>
+                {% if current_user.role == 'admin' %}
+                <button onclick="openWizard()" style="height: 36px; font-size: 14px; background-color: #0076CE;">+ Add Replication Group Wizard</button>
+                {% endif %}
+            </div>
             <div id="activeJobsContainer">
                 <table id="jobsTable">
                     <thead>
