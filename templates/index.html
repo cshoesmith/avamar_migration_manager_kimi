@@ -387,6 +387,7 @@
             <button onclick="openSettings()" style="background-color: transparent; border: 1px solid #555;">Settings</button>
             <button onclick="openAuditModal()" style="background-color: transparent; border: 1px solid #555; margin-left: 5px;">Audit Logs</button>
             {% endif %}
+            <button onclick="openAboutModal()" style="background-color: transparent; border: 1px solid #555; margin-left: 5px;">About</button>
             <a href="/report" target="_blank" style="color: #fff; text-decoration: none; border: 1px solid #555; padding: 5px 10px; font-size: 13px; margin-left: 5px;">Print Report</a>
             <a href="/logout" style="color: #fff; text-decoration: none; border: 1px solid #555; padding: 5px 10px; font-size: 13px; margin-left: 5px;">Logout</a>
         </div>
@@ -593,6 +594,45 @@
             </div>
             <div style="margin-top: 20px; text-align: right;">
                 <button onclick="closeBackupsModal()" style="background-color: #666;">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- About Modal -->
+    <div id="aboutModal" class="modal-overlay">
+        <div class="modal-content" style="width: 450px;">
+            <div class="modal-header">
+                <h2>About</h2>
+                <button onclick="closeAboutModal()" style="background-color: transparent; color: #666; font-size: 20px; padding: 0;">&times;</button>
+            </div>
+            <div style="text-align: center; padding: 20px 0;">
+                <div style="font-size: 24px; color: #0076CE; margin-bottom: 10px;">
+                    Dell <strong>Avamar</strong> Replication Manager
+                </div>
+                <div style="font-size: 14px; color: #666; margin-bottom: 20px;">
+                    Version 1.0.0 (2026-01-31)
+                </div>
+                <div style="font-size: 13px; color: #444; margin-bottom: 20px;">
+                    <strong>Author:</strong> Chris Shoesmith
+                </div>
+                <div style="font-size: 12px; color: #666; line-height: 1.6; text-align: left; background: #f9f9f9; padding: 15px; border-radius: 4px;">
+                    <p style="margin: 0 0 10px 0;"><strong>MIT License</strong></p>
+                    <p style="margin: 0; font-size: 11px;">
+                        Permission is hereby granted, free of charge, to any person obtaining a copy
+                        of this software and associated documentation files (the "Software"), to deal
+                        in the Software without restriction, including without limitation the rights
+                        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+                        copies of the Software, and to permit persons to whom the Software is
+                        furnished to do so, subject to the following conditions:
+                    </p>
+                    <p style="margin: 10px 0 0 0; font-size: 11px;">
+                        The above copyright notice and this permission notice shall be included in all
+                        copies or substantial portions of the Software.
+                    </p>
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <button onclick="closeAboutModal()" style="background-color: #666;">Close</button>
             </div>
         </div>
     </div>
@@ -2372,6 +2412,22 @@
             if (e.key === 'Enter') {
                 auditState.page = 1;
                 loadAuditLogs();
+            }
+        });
+
+        // About Modal Functions
+        function openAboutModal() {
+            document.getElementById('aboutModal').style.display = 'flex';
+        }
+
+        function closeAboutModal() {
+            document.getElementById('aboutModal').style.display = 'none';
+        }
+
+        // Close about modal when clicking outside
+        document.getElementById('aboutModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeAboutModal();
             }
         });
 

@@ -1,6 +1,31 @@
-# Avamar Migrator
+# Dell Avamar Replication Manager
 
-This application helps identify inactive Avamar clients (retired) that still possess backups and replicates them to a destination Avamar server.
+**Version:** 1.0.0 (2026-01-31)  
+**Author:** Chris Shoesmith
+
+A web application to help identify inactive Avamar clients (retired) that still possess backups and replicates them to a destination Avamar server.
+
+## License
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ## Setup
 
@@ -43,6 +68,8 @@ This application helps identify inactive Avamar clients (retired) that still pos
 *   **Replication**: Allows selecting found clients and adding them to a new Replication Group targeted at a specific destination.
 *   **Monitoring**: Dashboard to view created groups and track replication progress.
 *   **Audit Logging**: All administrative actions are logged for compliance.
+*   **User Management**: Admin users can create and manage user accounts with different roles.
+*   **Capacity Monitoring**: Real-time display of source and destination system capacity.
 
 ## Security Notes
 
