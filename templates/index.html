@@ -160,6 +160,40 @@
         
         .scrollable-table { max-height: 300px; overflow-y: auto; border: 1px solid #eee; }
 
+        /* Capacity Meter Bar Styles */
+        .capacity-meter {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: 5px;
+        }
+        .capacity-bar-bg {
+            width: 80px;
+            height: 12px;
+            background-color: #e9ecef;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #ddd;
+        }
+        .capacity-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #28a745 0%, #28a745 100%);
+            transition: width 0.5s ease, background 0.3s ease;
+        }
+        .capacity-bar-fill.warning {
+            background: linear-gradient(90deg, #ffc107 0%, #ffc107 100%);
+        }
+        .capacity-bar-fill.critical {
+            background: linear-gradient(90deg, #dc3545 0%, #dc3545 100%);
+        }
+        .capacity-text {
+            font-size: 11px;
+            color: #666;
+            white-space: nowrap;
+            font-weight: 500;
+        }
+
         /* Modals */
         .modal-overlay {
             display: none; /* Hidden by default */
@@ -423,26 +457,34 @@
         <div class="status-bar">
             <div class="status-item">
                 <span class="status-label">Source System</span>
-                <div>
+                <div style="display: flex; align-items: center; gap: 10px;">
                      <select id="sourceSelector" onchange="changeSource()" style="min-width: 150px; padding: 2px;">
                         <option value="">Select Source...</option>
                      </select>
-                    <span id="sourceStatus" class="status-val" style="margin-left: 10px;">Checking...</span>
-                </div>
-                <div id="sourceCapacity" style="font-size: 11px; color: #666; margin-top: 4px; display: none;">
-                    Capacity: <span id="sourceCapText">-</span>
+                    <span id="sourceStatus" class="status-val">Checking...</span>
+                    <!-- Capacity Bar -->
+                    <div id="sourceCapacity" class="capacity-meter" style="display: none;">
+                        <div class="capacity-bar-bg">
+                            <div id="sourceCapBar" class="capacity-bar-fill"></div>
+                        </div>
+                        <span id="sourceCapText" class="capacity-text">-</span>
+                    </div>
                 </div>
             </div>
             <div class="status-item">
                 <span class="status-label">Destination System (Verify)</span>
-                <div>
+                <div style="display: flex; align-items: center; gap: 10px;">
                      <select id="destSelector" onchange="changeDest()" style="min-width: 150px; padding: 2px;">
                         <option value="">Select Destination...</option>
                      </select>
-                    <span id="destStatus" class="status-val" style="margin-left: 10px;">Checking...</span>
-                </div>
-                <div id="destCapacity" style="font-size: 11px; color: #666; margin-top: 4px; display: none;">
-                    Capacity: <span id="destCapText">-</span>
+                    <span id="destStatus" class="status-val">Checking...</span>
+                    <!-- Capacity Bar -->
+                    <div id="destCapacity" class="capacity-meter" style="display: none;">
+                        <div class="capacity-bar-bg">
+                            <div id="destCapBar" class="capacity-bar-fill"></div>
+                        </div>
+                        <span id="destCapText" class="capacity-text">-</span>
+                    </div>
                 </div>
             </div>
             {% if current_user.role == 'admin' %}
@@ -955,17 +997,23 @@
                 // Update source capacity display
                 const sourceCapEl = document.getElementById('sourceCapacity');
                 const sourceCapText = document.getElementById('sourceCapText');
+                const sourceCapBar = document.getElementById('sourceCapBar');
                 if (data.source && data.source.total_gb) {
                     const used = data.source.used_gb || 0;
                     const total = data.source.total_gb || 0;
                     const percent = data.source.usage_percent || 0;
-                    sourceCapText.innerHTML = `${used.toFixed(0)} / ${total.toFixed(0)} GB (${percent}%)`;
-                    sourceCapText.title = `Free: ${(data.source.free_gb || 0).toFixed(2)} GB`;
-                    sourceCapEl.style.display = 'block';
-                    // Color code based on usage
-                    if (percent > 90) sourceCapText.style.color = '#dc3545';
-                    else if (percent > 75) sourceCapText.style.color = '#ffc107';
-                    else sourceCapText.style.color = '#28a745';
+                    const free = data.source.free_gb || 0;
+                    
+                    sourceCapText.innerHTML = `${used.toFixed(0)} / ${total.toFixed(0)} GB`;
+                    sourceCapText.title = `Used: ${used.toFixed(2)} GB / Total: ${total.toFixed(2)} GB\nFree: ${free.toFixed(2)} GB (${(100 - percent).toFixed(1)}%)`;
+                    sourceCapBar.style.width = `${Math.min(percent, 100)}%`;
+                    
+                    // Color code the bar based on usage
+                    sourceCapBar.classList.remove('warning', 'critical');
+                    if (percent > 90) sourceCapBar.classList.add('critical');
+                    else if (percent > 75) sourceCapBar.classList.add('warning');
+                    
+                    sourceCapEl.style.display = 'flex';
                 } else {
                     sourceCapEl.style.display = 'none';
                 }
@@ -973,17 +1021,23 @@
                 // Update destination capacity display
                 const destCapEl = document.getElementById('destCapacity');
                 const destCapText = document.getElementById('destCapText');
+                const destCapBar = document.getElementById('destCapBar');
                 if (data.destination && data.destination.total_gb) {
                     const used = data.destination.used_gb || 0;
                     const total = data.destination.total_gb || 0;
                     const percent = data.destination.usage_percent || 0;
-                    destCapText.innerHTML = `${used.toFixed(0)} / ${total.toFixed(0)} GB (${percent}%)`;
-                    destCapText.title = `Free: ${(data.destination.free_gb || 0).toFixed(2)} GB`;
-                    destCapEl.style.display = 'block';
-                    // Color code based on usage
-                    if (percent > 90) destCapText.style.color = '#dc3545';
-                    else if (percent > 75) destCapText.style.color = '#ffc107';
-                    else destCapText.style.color = '#28a745';
+                    const free = data.destination.free_gb || 0;
+                    
+                    destCapText.innerHTML = `${used.toFixed(0)} / ${total.toFixed(0)} GB`;
+                    destCapText.title = `Used: ${used.toFixed(2)} GB / Total: ${total.toFixed(2)} GB\nFree: ${free.toFixed(2)} GB (${(100 - percent).toFixed(1)}%)`;
+                    destCapBar.style.width = `${Math.min(percent, 100)}%`;
+                    
+                    // Color code the bar based on usage
+                    destCapBar.classList.remove('warning', 'critical');
+                    if (percent > 90) destCapBar.classList.add('critical');
+                    else if (percent > 75) destCapBar.classList.add('warning');
+                    
+                    destCapEl.style.display = 'flex';
                 } else {
                     destCapEl.style.display = 'none';
                 }
