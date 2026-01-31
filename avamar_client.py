@@ -626,7 +626,8 @@ class AvamarClient:
         return {'status': 'Unknown'}
     
     def get_client_recent_backups(self, client_id, hours=24):
-        """Get backup count for a client in the last N hours."""
+        """Get backup count for a client in the last N hours.
+        Only counts local backup activities, excluding replication backups."""
         from datetime import datetime, timedelta
         since = (datetime.now() - timedelta(hours=hours)).isoformat()
         
@@ -640,7 +641,10 @@ class AvamarClient:
         if resp.status_code == 200:
             data = resp.json()
             backups = data.get('content', [])
-            return len(backups)
+            # Filter out replication backups (location == 'Remote')
+            # Only count local backup activities
+            local_backups = [b for b in backups if b.get('location') != 'Remote']
+            return len(local_backups)
         return 0
     
     def get_critical_events(self, hours=24):
