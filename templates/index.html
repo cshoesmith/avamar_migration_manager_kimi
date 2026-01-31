@@ -719,7 +719,7 @@
                     <!-- Page Size -->
                     <div style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
                         <label>Rows per page:</label>
-                        <select id="auditPageSize" onchange="changeAuditPageSize()" style="padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px; width: 28px; font-size: 12px;">
+                        <select id="auditPageSize" onchange="changeAuditPageSize()" style="padding: 2px; border: 1px solid #ccc; border-radius: 4px; width: 40px; font-size: 12px; box-sizing: border-box;">
                             <option value="10">10</option>
                             <option value="50">50</option>
                             <option value="100">100</option>
@@ -740,45 +740,113 @@
 
     <div class="container">
         <!-- System Health Status -->
-        <div class="status-bar">
-            <div class="status-item">
-                <span class="status-label">Source System</span>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                     <select id="sourceSelector" onchange="changeSource()" style="min-width: 150px; padding: 2px;">
-                        <option value="">Select Source...</option>
-                     </select>
-                    <span id="sourceStatus" class="status-val">Checking...</span>
-                    <!-- Capacity Bar -->
-                    <div id="sourceCapacity" class="capacity-wrapper" style="display: none;">
-                        <div class="capacity-label">Capacity</div>
-                        <div class="capacity-meter">
-                            <div class="capacity-bar-bg">
-                                <div id="sourceCapBar" class="capacity-bar-fill"></div>
+        <div class="status-bar" style="display: flex; align-items: flex-start; gap: 20px;">
+            <!-- Left Side: Source System -->
+            <div style="flex: 1; min-width: 0;">
+                <div class="status-item" style="margin-bottom: 10px;">
+                    <span class="status-label">Source System</span>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                         <select id="sourceSelector" onchange="changeSource()" style="min-width: 150px; padding: 2px;">
+                            <option value="">Select Source...</option>
+                         </select>
+                        <span id="sourceStatus" class="status-val">Checking...</span>
+                        <!-- Capacity Bar -->
+                        <div id="sourceCapacity" class="capacity-wrapper" style="display: none;">
+                            <div class="capacity-label">Capacity</div>
+                            <div class="capacity-meter">
+                                <div class="capacity-bar-bg">
+                                    <div id="sourceCapBar" class="capacity-bar-fill"></div>
+                                </div>
+                                <span id="sourceCapText" class="capacity-text">-</span>
                             </div>
-                            <span id="sourceCapText" class="capacity-text">-</span>
                         </div>
                     </div>
                 </div>
-            </div>
-            <div class="status-item">
-                <span class="status-label">Destination System (Verify)</span>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                     <select id="destSelector" onchange="changeDest()" style="min-width: 150px; padding: 2px;">
-                        <option value="">Select Destination...</option>
-                     </select>
-                    <span id="destStatus" class="status-val">Checking...</span>
-                    <!-- Capacity Bar -->
-                    <div id="destCapacity" class="capacity-wrapper" style="display: none;">
-                        <div class="capacity-label">Capacity</div>
-                        <div class="capacity-meter">
-                            <div class="capacity-bar-bg">
-                                <div id="destCapBar" class="capacity-bar-fill"></div>
-                            </div>
-                            <span id="destCapText" class="capacity-text">-</span>
-                        </div>
+                <!-- Source System Details Box -->
+                <div id="sourceDetailsBox" style="display: none; background: #e3f2fd; border: 1px solid #2196F3; border-radius: 4px; padding: 10px; font-size: 12px;">
+                    <div style="font-weight: bold; color: #1565C0; margin-bottom: 8px; border-bottom: 1px solid #90CAF9; padding-bottom: 5px;">
+                        Source Avamar Details
+                    </div>
+                    <div style="display: grid; grid-template-columns: auto 1fr; gap: 5px 15px; align-items: center;">
+                        <span style="color: #666;">Hostname:</span>
+                        <span id="detailHostname" style="font-weight: 600;">-</span>
+                        
+                        <span style="color: #666;">Version:</span>
+                        <span id="detailVersion" style="font-weight: 600;">-</span>
+                        
+                        <span style="color: #666;">Checkpoint (CP):</span>
+                        <span id="detailCP" style="display: flex; align-items: center; gap: 5px;">
+                            <span id="dotCP" style="width: 10px; height: 10px; border-radius: 50%; background: #ccc;"></span>
+                            <span id="textCP">-</span>
+                        </span>
+                        
+                        <span style="color: #666;">Garbage Collect:</span>
+                        <span id="detailGC" style="display: flex; align-items: center; gap: 5px;">
+                            <span id="dotGC" style="width: 10px; height: 10px; border-radius: 50%; background: #ccc;"></span>
+                            <span id="textGC">-</span>
+                        </span>
+                        
+                        <span style="color: #666;">Critical Alerts (24h):</span>
+                        <span id="detailAlerts" style="font-weight: 600; color: #d32f2f;">-</span>
                     </div>
                 </div>
             </div>
+            
+            <!-- Vertical Divider -->
+            <div style="width: 1px; background: #ccc; align-self: stretch; margin: 0 10px;"></div>
+            
+            <!-- Right Side: Destination System -->
+            <div style="flex: 1; min-width: 0;">
+                <div class="status-item" style="margin-bottom: 10px;">
+                    <span class="status-label">Destination System</span>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                         <select id="destSelector" onchange="changeDest()" style="min-width: 150px; padding: 2px;">
+                            <option value="">Select Destination...</option>
+                         </select>
+                        <span id="destStatus" class="status-val">Checking...</span>
+                        <!-- Capacity Bar -->
+                        <div id="destCapacity" class="capacity-wrapper" style="display: none;">
+                            <div class="capacity-label">Capacity</div>
+                            <div class="capacity-meter">
+                                <div class="capacity-bar-bg">
+                                    <div id="destCapBar" class="capacity-bar-fill"></div>
+                                </div>
+                                <span id="destCapText" class="capacity-text">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Destination System Details Box -->
+                <div id="destDetailsBox" style="display: none; background: #f3e5f5; border: 1px solid #9c27b0; border-radius: 4px; padding: 10px; font-size: 12px;">
+                    <div style="font-weight: bold; color: #7b1fa2; margin-bottom: 8px; border-bottom: 1px solid #ce93d8; padding-bottom: 5px;">
+                        Destination Avamar Details
+                    </div>
+                    <div style="display: grid; grid-template-columns: auto 1fr; gap: 5px 15px; align-items: center;">
+                        <span style="color: #666;">Hostname:</span>
+                        <span id="destDetailHostname" style="font-weight: 600;">-</span>
+                        
+                        <span style="color: #666;">Version:</span>
+                        <span id="destDetailVersion" style="font-weight: 600;">-</span>
+                        
+                        <span style="color: #666;">Checkpoint (CP):</span>
+                        <span id="destDetailCP" style="display: flex; align-items: center; gap: 5px;">
+                            <span id="destDotCP" style="width: 10px; height: 10px; border-radius: 50%; background: #ccc;"></span>
+                            <span id="destTextCP">-</span>
+                        </span>
+                        
+                        <span style="color: #666;">Garbage Collect:</span>
+                        <span id="destDetailGC" style="display: flex; align-items: center; gap: 5px;">
+                            <span id="destDotGC" style="width: 10px; height: 10px; border-radius: 50%; background: #ccc;"></span>
+                            <span id="destTextGC">-</span>
+                        </span>
+                        
+                        <span style="color: #666;">Critical Alerts (24h):</span>
+                        <span id="destDetailAlerts" style="font-weight: 600; color: #d32f2f;">-</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Refresh Button -->
             {% if current_user.role == 'admin' %}
             <div>
                 <button onclick="checkHealth()" style="background-color: #666; padding: 6px 12px; font-size: 12px;">Refresh Status</button>
@@ -802,7 +870,6 @@
             </div>
             
             <div id="sourceInventory" class="section-content">
-                <p style="margin-top:10px; color:#666;">Discovered clients on the source system.</p>
                 <div class="scrollable-table" style="max-height: 250px;">
                     <table id="dashClientTable">
                         <thead>
@@ -811,11 +878,12 @@
                                 <th>Domain</th>
                                 <th>Total Backups</th>
                                 <th>Last Backup Date/Time</th>
+                                <th>Backup Activities (24hr)</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr><td colspan="5" style="text-align:center;">Select a Source System to view clients...</td></tr>
+                            <tr><td colspan="6" style="text-align:center;">Select a Source System to view clients...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -1461,6 +1529,20 @@
                 
                 // Fetch capacity information after successful health check
                 await fetchCapacity();
+                
+                // Fetch system details for source
+                if (sId && s.status === 'Online') {
+                    await fetchSourceDetails();
+                } else {
+                    document.getElementById('sourceDetailsBox').style.display = 'none';
+                }
+                
+                // Fetch system details for destination
+                if (dId && d.status === 'Online') {
+                    await fetchDestDetails();
+                } else {
+                    document.getElementById('destDetailsBox').style.display = 'none';
+                }
             } catch(e) {
                 console.error("Health check failed", e);
                 // If total failure (app down), also lockout
@@ -1534,6 +1616,100 @@
             }
         }
 
+        async function fetchSourceDetails() {
+            const sId = document.getElementById('sourceSelector').value;
+            if (!sId) {
+                document.getElementById('sourceDetailsBox').style.display = 'none';
+                return;
+            }
+            
+            try {
+                const res = await fetch(`/api/system/details?source_id=${sId}`);
+                if (res.status !== 200) throw new Error('Failed to fetch details');
+                
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                
+                // Update the details box
+                document.getElementById('detailHostname').textContent = data.hostname || '-';
+                document.getElementById('detailVersion').textContent = data.version || '-';
+                
+                // Checkpoint (CP) status with colored dot
+                const cpValid = data.checkpoint?.valid;
+                const cpStatus = data.checkpoint?.status || 'Unknown';
+                document.getElementById('textCP').textContent = cpStatus;
+                const cpDot = document.getElementById('dotCP');
+                cpDot.style.background = cpValid ? '#4CAF50' : 
+                                         cpStatus === 'None' ? '#9E9E9E' : '#f44336';
+                
+                // GC status with colored dot (Green for OK, Red for anything else)
+                const gcStatus = data.garbage_collection?.status || 'Unknown';
+                document.getElementById('textGC').textContent = gcStatus;
+                const gcDot = document.getElementById('dotGC');
+                gcDot.style.background = gcStatus === 'OK' ? '#4CAF50' : '#f44336';
+                
+                // Critical alerts
+                const alertCount = data.critical_alerts_count || 0;
+                const alertEl = document.getElementById('detailAlerts');
+                alertEl.textContent = alertCount;
+                alertEl.style.color = alertCount > 0 ? '#d32f2f' : '#4CAF50';
+                
+                // Show the box
+                document.getElementById('sourceDetailsBox').style.display = 'block';
+                
+            } catch (e) {
+                console.error('Failed to fetch source details:', e);
+                document.getElementById('sourceDetailsBox').style.display = 'none';
+            }
+        }
+
+        async function fetchDestDetails() {
+            const dId = document.getElementById('destSelector').value;
+            if (!dId) {
+                document.getElementById('destDetailsBox').style.display = 'none';
+                return;
+            }
+            
+            try {
+                const res = await fetch(`/api/system/details/dest?dest_id=${dId}`);
+                if (res.status !== 200) throw new Error('Failed to fetch details');
+                
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                
+                // Update the details box
+                document.getElementById('destDetailHostname').textContent = data.hostname || '-';
+                document.getElementById('destDetailVersion').textContent = data.version || '-';
+                
+                // Checkpoint (CP) status with colored dot
+                const cpValid = data.checkpoint?.valid;
+                const cpStatus = data.checkpoint?.status || 'Unknown';
+                document.getElementById('destTextCP').textContent = cpStatus;
+                const cpDot = document.getElementById('destDotCP');
+                cpDot.style.background = cpValid ? '#4CAF50' : 
+                                         cpStatus === 'None' ? '#9E9E9E' : '#f44336';
+                
+                // GC status with colored dot (Green for OK, Red for anything else)
+                const gcStatus = data.garbage_collection?.status || 'Unknown';
+                document.getElementById('destTextGC').textContent = gcStatus;
+                const gcDot = document.getElementById('destDotGC');
+                gcDot.style.background = gcStatus === 'OK' ? '#4CAF50' : '#f44336';
+                
+                // Critical alerts
+                const alertCount = data.critical_alerts_count || 0;
+                const alertEl = document.getElementById('destDetailAlerts');
+                alertEl.textContent = alertCount;
+                alertEl.style.color = alertCount > 0 ? '#d32f2f' : '#4CAF50';
+                
+                // Show the box
+                document.getElementById('destDetailsBox').style.display = 'block';
+                
+            } catch (e) {
+                console.error('Failed to fetch destination details:', e);
+                document.getElementById('destDetailsBox').style.display = 'none';
+            }
+        }
+
         async function scanClients() {
             const sId = document.getElementById('sourceSelector').value;
             // Only alert if this was a user interaction (event exists)
@@ -1584,6 +1760,20 @@
         }
 
         function renderCandidates() {
+            // Helper to determine row background color based on backup activity
+            const getRowColor = (recentBackups, activeGroups) => {
+                const rb = recentBackups || 0;
+                const ag = activeGroups || 0;
+                
+                if (rb > 0) {
+                    return '#ffcccc'; // Light red: has recent backups
+                } else if (ag > 0) {
+                    return '#ffffcc'; // Light yellow: no recent backups but in groups
+                } else {
+                    return '#ccffcc'; // Light green: no recent backups and not in groups
+                }
+            };
+            
             // Helper to render row
             const createRow = (c, withCheckbox) => {
                 const tr = document.createElement('tr');
@@ -1602,6 +1792,11 @@
                 // Format last backup date
                 const lastBackup = c.lastBackup ? formatDate(c.lastBackup) : 'Never';
                 
+                // For dashboard view (no checkbox), apply row background color
+                if (!withCheckbox) {
+                    tr.style.backgroundColor = getRowColor(c.recentBackups, c.activeGroups);
+                }
+                
                 let html = '';
                 if(withCheckbox) {
                     html += `<td><input type="checkbox" class="client-cb" value="${c.id}"></td>`;
@@ -1615,6 +1810,8 @@
                 // Add Last Backup column for dashboard view (no checkbox)
                 if(!withCheckbox) {
                      html += `<td style="font-size:12px; color:#666;">${lastBackup}</td>`;
+                     // Add Recent Backups column
+                     html += `<td style="text-align:center; font-weight:600;">${c.recentBackups || 0}</td>`;
                 }
                 
                 html += `<td><span title="${badgeTitle}" style="background:${badgeColor}; color:${textColor}; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:600; cursor: help;">${badgeText}</span></td>`;
@@ -1639,7 +1836,7 @@
             if(dashTbody) {
                 dashTbody.innerHTML = '';
                  if (candidates.length === 0) {
-                     dashTbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 20px; color:#999;">No clients found on source or scan not run.</td></tr>';
+                     dashTbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 20px; color:#999;">No clients found on source or scan not run.</td></tr>';
                 } else {
                     candidates.forEach(c => dashTbody.appendChild(createRow(c, false)));
                 }

@@ -587,3 +587,76 @@ class AvamarClient:
         if resp.status_code == 200:
             return resp.json()
         return None
+
+
+    def get_system_info(self):
+        """Get basic system information including model and version."""
+        resp = self._request('GET', '/v1/system/basic-info')
+        if resp.status_code == 200:
+            return resp.json()
+        return None
+    
+    def get_checkpoint_status(self):
+        """Get checkpoint (CP) status from checkpoints endpoint.
+        Returns: dict with 'valid' (bool) - true if hfscheckValidCheck is true for any checkpoint
+        """
+        resp = self._request('GET', '/v1/server/checkpoints')
+        if resp.status_code == 200:
+            checkpoints = resp.json()
+            if checkpoints and len(checkpoints) > 0:
+                # Check if any checkpoint has hfscheckValidCheck = true
+                # Typically the most recent one matters
+                for cp in checkpoints:
+                    if cp.get('hfscheckValidCheck') is True:
+                        return {'valid': True, 'status': 'Valid'}
+                return {'valid': False, 'status': 'Invalid'}
+            return {'valid': False, 'status': 'None'}
+        return {'valid': False, 'status': 'Unknown'}
+    
+    def get_gc_status(self):
+        """Get garbage collection status.
+        Returns: dict with 'status' (str) based on result field
+        """
+        resp = self._request('GET', '/v1/server/garbage-collect/status')
+        if resp.status_code == 200:
+            data = resp.json()
+            # API returns an object with result field
+            result = data.get('result', 'UNKNOWN')
+            return {'status': result}
+        return {'status': 'Unknown'}
+    
+    def get_client_recent_backups(self, client_id, hours=24):
+        """Get backup count for a client in the last N hours."""
+        from datetime import datetime, timedelta
+        since = (datetime.now() - timedelta(hours=hours)).isoformat()
+        
+        params = {
+            'since': since,
+            'page': 0,
+            'size': 1000
+        }
+        
+        resp = self._request('GET', f'/v1/clients/{client_id}/backups', params=params)
+        if resp.status_code == 200:
+            data = resp.json()
+            backups = data.get('content', [])
+            return len(backups)
+        return 0
+    
+    def get_critical_events(self, hours=24):
+        """Get critical events/alerts from the last N hours."""
+        from datetime import datetime, timedelta
+        since = (datetime.now() - timedelta(hours=hours)).isoformat()
+        
+        params = {
+            'severity': 'CRITICAL',
+            'startTime': since,
+            'page': 0,
+            'size': 100
+        }
+        
+        resp = self._request('GET', '/v1/events', params=params)
+        if resp.status_code == 200:
+            data = resp.json()
+            return data.get('content', [])
+        return []

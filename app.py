@@ -397,6 +397,82 @@ def system_health():
     return jsonify(health)
 
 
+@app.route('/api/system/details', methods=['GET'])
+@login_required
+def system_details():
+    """Get detailed system information for Source Avamar."""
+    source_id = request.args.get('source_id') or request.cookies.get('source_id')
+    
+    if not source_id:
+        return jsonify({'error': 'No source selected'}), 400
+    
+    client = get_client_by_id(True, source_id)
+    if not client:
+        return jsonify({'error': 'Could not connect to source'}), 500
+    
+    try:
+        # Get system info
+        sys_info = client.get_system_info() or {}
+        cp_status = client.get_checkpoint_status() or {}
+        gc_status = client.get_gc_status() or {}
+        critical_events = client.get_critical_events(hours=24)
+        
+        return jsonify({
+            'hostname': settings.get_source_by_id(source_id)['host'],
+            'version': sys_info.get('version', 'Unknown'),
+            'checkpoint': {
+                'valid': cp_status.get('valid', False),
+                'status': cp_status.get('status', 'Unknown')
+            },
+            'garbage_collection': {
+                'status': gc_status.get('status', 'Unknown')
+            },
+            'critical_alerts_count': len(critical_events),
+            'critical_alerts': critical_events[:5]  # First 5 alerts
+        })
+    except Exception as e:
+        app.logger.error(f"Failed to get system details: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/system/details/dest', methods=['GET'])
+@login_required
+def system_details_dest():
+    """Get detailed system information for Destination Avamar."""
+    dest_id = request.args.get('dest_id') or request.cookies.get('dest_id')
+    
+    if not dest_id:
+        return jsonify({'error': 'No destination selected'}), 400
+    
+    client = get_client_by_id(False, dest_id)
+    if not client:
+        return jsonify({'error': 'Could not connect to destination'}), 500
+    
+    try:
+        # Get system info
+        sys_info = client.get_system_info() or {}
+        cp_status = client.get_checkpoint_status() or {}
+        gc_status = client.get_gc_status() or {}
+        critical_events = client.get_critical_events(hours=24)
+        
+        return jsonify({
+            'hostname': settings.get_destination_by_id(dest_id)['host'],
+            'version': sys_info.get('version', 'Unknown'),
+            'checkpoint': {
+                'valid': cp_status.get('valid', False),
+                'status': cp_status.get('status', 'Unknown')
+            },
+            'garbage_collection': {
+                'status': gc_status.get('status', 'Unknown')
+            },
+            'critical_alerts_count': len(critical_events),
+            'critical_alerts': critical_events[:5]  # First 5 alerts
+        })
+    except Exception as e:
+        app.logger.error(f"Failed to get destination system details: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/system/capacity', methods=['GET'])
 @login_required
 def system_capacity():
@@ -505,12 +581,20 @@ def scan_clients():
             # We can use this flag in UI to highlight or sort
             is_candidate = is_inactive and has_backups
 
+            # Get recent backup count (last 24 hours)
+            recent_backups = 0
+            try:
+                recent_backups = client.get_client_recent_backups(c['id'], hours=24)
+            except Exception as e:
+                print(f"Error fetching recent backups for {c['name']}: {e}")
+
             candidates.append({
                 'id': c['id'],
                 'name': c['name'],
                 'domain': c['domainFqdn'],
                 'totalBackups': c['totalBackups'],
                 'lastBackup': c.get('lastBackupTime'),
+                'recentBackups': recent_backups,
                 'activeGroups': active_groups_count,
                 'groupNames': group_names,
                 'status': status_label,
